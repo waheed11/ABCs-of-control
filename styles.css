@@ -1,0 +1,349 @@
+/*
+
+This CSS file will be included with your plugin, and
+available in the app when your plugin is enabled.
+
+If your plugin does not need CSS, delete this file.
+
+*/
+
+/* ABCs of Control Plugin Styles */
+
+.abcs-of-control-modal {
+    padding: 20px;
+}
+
+/* ABC layout */
+.abc-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+    position: relative;
+    width: 100%;
+    height: 300px;
+}
+
+.abc-row {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    position: relative;
+}
+
+.top-row, .bottom-row {
+    height: 100px;
+}
+
+.middle-row {
+    height: 100px;
+    justify-content: center;
+}
+
+.letter-cell {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+}
+
+.letter-cell.left {
+    justify-content: flex-start;
+}
+
+.letter-cell.right {
+    justify-content: flex-end;
+}
+
+.letter-cell.center {
+    justify-content: center;
+}
+
+.letter-bubble {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--background-modifier-border);
+    transition: all 0.2s ease;
+}
+
+.letter-bubble {
+    transition: transform 0.2s ease;
+}
+
+.letter-bubble.has-templates {
+    cursor: pointer;
+}
+
+.letter-bubble.has-templates:hover {
+    transform: scale(1.1);
+    filter: brightness(1.1);
+}
+
+.letter-cell:nth-child(1) .letter-bubble {
+    background-color: #e3f128; /* Blue for A */
+}
+
+.letter-cell:nth-child(2) .letter-bubble {
+    background-color: #4CAF50; /* Green for B */
+}
+
+.middle-row .letter-cell .letter-bubble {
+    background-color: #F44336; /* Red for C */
+}
+
+.bottom-row .letter-cell:nth-child(1) .letter-bubble {
+    background-color: #3633cb; /* Dark gray for D */
+}
+
+.bottom-row .letter-cell:nth-child(2) .letter-bubble {
+    background-color: #282726; /* Yellow for E */
+}
+
+.letter {
+    font-size: 36px;
+    font-weight: bold;
+    color: white;
+}
+
+/* Template list */
+.template-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: 10px;
+    width: 100%;
+}
+
+.template-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.template-list li {
+    margin-bottom: 5px;
+}
+
+.template-list button {
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.template-list button:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+/* Input forms */
+.name-input-container,
+.placeholder-input-container {
+    margin-bottom: 15px;
+    position: relative; /* for dropdown positioning */
+}
+
+.name-input-container input,
+.placeholder-input-container input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+}
+
+.placeholder-input-container textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    min-height: 140px;
+    resize: vertical;
+}
+
+.placeholder-input-container label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.placeholder-input-container .radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+}
+
+.placeholder-input-container .radio-group .radio-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.placeholder-input-container .radio-group .radio-option input[type="radio"] {
+    width: auto;
+}
+
+.placeholder-input-container .chips-input {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background-color: var(--background-primary);
+}
+
+.placeholder-input-container .chips-input input {
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 6px;
+    width: auto;
+    min-width: 120px;
+}
+
+.placeholder-input-container .chips-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.placeholder-input-container .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--background-modifier-hover);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.placeholder-input-container .chip-remove {
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.placeholder-input-container .chips-suggestions {
+    list-style: none;
+    margin: 4px 0 0 0;
+    padding: 4px 0;
+    position: absolute;
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow: auto;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    display: none;
+}
+
+.placeholder-input-container .chips-suggestions.show {
+    display: block;
+}
+
+.placeholder-input-container .chips-suggestions li {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.placeholder-input-container .chips-suggestions li:hover {
+    background: var(--background-modifier-hover);
+}
+
+.button-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.button-container button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: var(--interactive-normal);
+    border: 1px solid var(--background-modifier-border);
+    color: var(--text-normal);
+}
+
+.button-container button:last-child {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+.button-container button:hover {
+    filter: brightness(1.1);
+}
+
+/* Color picker modal */
+.color-picker-modal {
+    padding: 20px;
+    width: 300px;
+}
+
+.color-container {
+    display: flex;
+    justify-content: space-around;
+    margin: 20px 0;
+}
+
+.color-swatch {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.color-swatch:hover {
+    transform: scale(1.1);
+}
+
+.color-swatch.selected {
+    border-color: var(--text-normal);
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+}
+
+/* Highlight styles */
+.markdown-rendered mark {
+    padding: 0 4px;
+    border-radius: 4px;
+}
+
+/* Specific highlight colors */
+.markdown-rendered mark[style*="background: yellow"] {
+    background-color: rgba(255, 255, 0, 0.3) !important;
+}
+
+.markdown-rendered mark[style*="background: green"] {
+    background-color: rgba(0, 128, 0, 0.2) !important;
+}
+
+.markdown-rendered mark[style*="background: red"] {
+    background-color: rgba(255, 0, 0, 0.2) !important;
+}
+
+.markdown-rendered mark[style*="background: blue"] {
+    background-color: rgba(0, 0, 255, 0.2) !important;
+}
+
+.markdown-rendered mark[style*="background: gray"] {
+    background-color: rgba(128, 128, 128, 0.2) !important;
+}

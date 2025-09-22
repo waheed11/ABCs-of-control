@@ -1,0 +1,10 @@
+{
+	"id": "ABCs-of-control",
+	"name": "ABCs of Control",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Organize and create notes using alphabetical templates from C/Templates directory.",
+	"author": "AbdulWahid",
+	"authorUrl": "",
+	"isDesktopOnly": false
+}
