@@ -347,3 +347,119 @@ If your plugin does not need CSS, delete this file.
 .markdown-rendered mark[style*="background: gray"] {
     background-color: rgba(128, 128, 128, 0.2) !important;
 }
+
+/* Full width preview for the selected heading */
+.abcs-of-control-modal .heading-preview {
+	margin-top: 6px;
+	padding: 10px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	white-space: normal; /* allow wrapping */
+	word-break: break-word; /* break very long tokens */
+	direction: rtl; /* render Arabic nicely */
+	text-align: right;
+	font-size: 0.95rem;
+}
+
+/* ---- Minimal layout for heading + [[note]] form ---- */
+.abcs-of-control-modal .form-row {
+	flex-direction: column;
+	align-items: stretch;
+}
+
+.abcs-of-control-modal .form-row label {
+	min-width: 0;
+	margin-bottom: 4px;
+}
+
+.abcs-of-control-modal .form-row select {
+	width: 100%;
+	/* Increase visible height */
+	padding: 14px 14px;
+	min-height: 44px;
+	/* Improve readability */
+	font-size: 1rem;
+	line-height: 1.5;
+	/* Better defaults for mixed languages */
+	direction: auto;
+	text-align: start;
+	/* keep existing theming */
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.abcs-of-control-modal .form-row select option {
+	white-space: normal;
+	padding: 6px 8px;
+}
+
+.selected-notes {
+	margin-top: 10px;
+}
+
+.selected-notes h3 {
+	margin: 12px 0 6px 0;
+	font-size: 1rem;
+}
+
+.selected-notes ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.selected-notes ul li {
+	padding: 6px 10px;
+	margin: 4px 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-modifier-hover);
+}
+
+/* ---- Wiki [[...]] suggester ---- */
+.wiki-suggest-box {
+	margin-top: 6px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-primary);
+	max-height: 240px;
+	overflow: auto;
+	box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+	z-index: 1000;
+}
+
+.wiki-suggest-list {
+	list-style: none;
+	padding: 4px;
+	margin: 0;
+}
+
+.wiki-suggest-list li {
+	margin: 0;
+}
+
+.wiki-suggest-list li button {
+	width: 100%;
+	text-align: left;
+	padding: 8px 10px;
+	border: none;
+	background: transparent;
+	border-radius: 4px;
+	cursor: pointer;
+	color: var(--text-normal);
+}
+
+.wiki-suggest-list li button:hover {
+	background: var(--background-modifier-hover);
+}
+
+.wiki-suggest-list li.active button {
+	background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+	outline: 2px solid var(--interactive-accent);
+}
+
+/* ---- End: minimal layout additions ---- */

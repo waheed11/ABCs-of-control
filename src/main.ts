@@ -346,6 +346,15 @@ export default class ABCsOfControlPlugin extends Plugin {
 			if (file instanceof TFile && file.extension === 'md') {
 				const fileName = file.basename;
 				
+				// Check if the file name starts with our special Content-to-D-Projects- prefix
+				if (fileName.startsWith('Content-to-D-Projects-')) {
+					// Force-list under D
+					const letterFiles = templateMap.get('D') || [];
+					letterFiles.push(file);
+					templateMap.set('D', letterFiles);
+					continue;
+				}
+				
 				// Check if the file name starts with "Insert-to-"
 				if (fileName.startsWith('Insert-to-')) {
 					// Extract the letter after "Insert-to-"
@@ -498,6 +507,12 @@ class ABCsModal extends Modal {
 			templateButton.addEventListener('click', async () => {
 				this.selectedTemplate = template;
 				
+				// Handle special C-template that should act under D
+				if (template.basename.startsWith('Content-to-D-Projects-')) {
+					await this.handleContentToDProjects(template);
+					return;
+				}
+				
 				// Check if this is an "Insert-to-" template
 				if (template.basename.startsWith('Insert-to-')) {
 					// Read template content
@@ -511,95 +526,13 @@ class ABCsModal extends Modal {
 					await this.handleInvokeTemplate(template, templateContent);
 				} else if (template.basename.includes("Literature Notes") || letter === "B") {
 					// Literature note template or any template in section B - go directly to data source selection
-					await this.promptForDataSource();
+					this.promptForNoteCreation();
 				} else {
 					// Regular template - unified create note modal
 					this.promptForNoteCreation();
 				}
 			});
 		}
-	}
-	
-	async promptForDataSource() {
-		const { contentEl } = this;
-		contentEl.empty();
-		
-		contentEl.createEl('h2', { text: 'Data Source' });
-		contentEl.createEl('p', { text: 'How would you like to create your note?' });
-		
-		const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
-		
-		const manualButton = buttonContainer.createEl('button', { text: 'Enter Data Manually' });
-		manualButton.addEventListener('click', async () => {
-			// For manual entry, open unified create note modal
-			this.promptForNoteCreation();
-		});
-		
-		// Check if Zotero Desktop Connector plugin is available
-		const zoteroPlugin = (this.app as any).plugins.getPlugin('obsidian-zotero-desktop-connector');
-		
-		const zoteroButton = buttonContainer.createEl('button', { text: 'Import from Zotero' });
-		if (!zoteroPlugin) {
-			zoteroButton.disabled = true;
-			zoteroButton.title = 'Zotero Desktop Connector plugin is not installed or enabled';
-		}
-		
-		zoteroButton.addEventListener('click', async () => {
-			if (!zoteroPlugin) {
-				new Notice('Zotero Desktop Connector plugin is not installed or enabled');
-				return;
-			}
-			
-			try {
-				// Inform the user about the Zotero naming behavior
-				new Notice('Note: Zotero will use the citation key as the note name instead of the one you entered', 5000);
-				
-				// Close this modal first
-				this.close();
-				
-				// Get the template name without the file extension
-				const templateName = this.selectedTemplate ? this.selectedTemplate.basename : "";
-				
-				// Find the Zotero command that matches the template name
-				const commands = (this.app as any).commands.commands;
-				const commandId = Object.keys(commands).find(id => {
-					// Check if this is a Zotero integration command
-					if (!id.includes('obsidian-zotero-desktop-connector')) return false;
-					
-					// Get the command name
-					const commandName = commands[id].name;
-					
-					// Check if the command name includes the template name or vice versa
-					// This allows for flexibility in matching
-					return (
-						// Direct match with "Zotero Integration: [template name]"
-						commandName === `Zotero Integration: ${templateName}` ||
-						// The command name contains the template name
-						commandName.includes(templateName) ||
-						// The template name contains the command name (excluding "Zotero Integration: ")
-						templateName.includes(commandName.replace("Zotero Integration: ", ""))
-					);
-				});
-				
-				if (commandId) {
-					// Execute the Zotero command
-					await (this.app as any).commands.executeCommandById(commandId);
-				} else {
-					// Fallback to a generic Zotero command if the specific one isn't found
-					new Notice(`No matching Zotero command found for template "${templateName}". Please check your Zotero integration settings.`);
-					return;
-				}
-			} catch (error) {
-				console.error('Error executing Zotero command:', error);
-				new Notice(`Error: ${error.message}`);
-			}
-		});
-		
-		// Add a back button
-		const backButton = buttonContainer.createEl('button', { text: 'Back' });
-		backButton.addEventListener('click', () => {
-			this.promptForNoteCreation();
-		});
 	}
 	
 	async handleInsertToTemplate(template: TFile, templateContent: string) {
@@ -1323,256 +1256,447 @@ class ABCsModal extends Modal {
 	}
 	
 	async ensureFolderExists(folderPath: string) {
-		const folders = folderPath.split('/');
-		let currentPath = '';
-		
-		for (const folder of folders) {
-			if (!folder) continue;
-			
-			currentPath += folder;
-			
-			if (!(await this.app.vault.adapter.exists(currentPath))) {
-				await this.app.vault.createFolder(currentPath);
+		const existing = this.app.vault.getAbstractFileByPath(folderPath);
+		if (existing instanceof TFolder) return;
+		// Recursively create folders
+		const parts = folderPath.split('/');
+		let current = '';
+		for (const p of parts) {
+			current = current ? `${current}/${p}` : p;
+			const f = this.app.vault.getAbstractFileByPath(current);
+			if (!f) {
+				await this.app.vault.createFolder(current);
 			}
-			
-			currentPath += '/';
 		}
 	}
-	/*
-	showNoteNamePrompt() {
-		// Deprecated: redirect to unified modal
-		this.promptForNoteCreation();
-	}
-	*/
 	
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
+	// New handler: Content-to-D-Projects-[PROJECT NAME]
+	// New handler: Content-to-D-Projects-[PROJECT NAME]
+async handleContentToDProjects(template: TFile) {
+	const { contentEl } = this;
+	contentEl.empty();
+  
+	const templateContent = await this.app.vault.read(template);
+  
+	// Extract project name from template name
+	const prefix = 'Content-to-D-Projects-';
+	const projectName = template.basename.startsWith(prefix)
+	  ? template.basename.substring(prefix.length)
+	  : template.basename;
+  
+	// Parse headings with level and numeric section (e.g., 1.2.3)
+	const headings: string[] = [];
+	const headingMetaMap: Record<string, { level: number; section: number[] }> = {};
+	const parseSection = (t: string): number[] => {
+	  // Normalize Arabic-Indic digits to western digits before parsing
+	  const toWestern = (s: string) => s
+		.replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+		.replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
+	  const norm = toWestern(t);
+	  const m = norm.match(/^\s*(\d+(?:\.\d+)*)\b/);
+	  if (!m) return [];
+	  return m[1].split('.').map(n => parseInt(n, 10));
+	};
+	for (const line of templateContent.split('\n')) {
+	  const m = line.match(/^(#+)\s+(.+?)\s*$/);
+	  if (m) {
+		const level = m[1].length;
+		const text = m[2].trim();
+		headings.push(text);
+		headingMetaMap[text] = { level, section: parseSection(text) };
+	  }
 	}
-}
+  
+	if (headings.length === 0) {
+	  new Notice('No headings found in the template to insert under.');
+	  this.close();
+	  return;
+	}
+  
+	contentEl.createEl('h2', { text: `Add notes to D/Projects/${projectName}/Content` });
+  
+	// Heading dropdown (auto RTL/LTR per selection)
+	const headingRow = contentEl.createDiv({ cls: 'form-row' });
+	headingRow.createEl('label', { text: 'Heading:' });
+	const headingSelect = headingRow.createEl('select');
+	headings.forEach(h => {
+	  const opt = headingSelect.createEl('option');
+	  opt.value = h;
+	  opt.text = h;
+	  opt.setAttr('title', h);
+	});
+	const applyHeadingDir = () => {
+	  const v = (headingSelect as HTMLSelectElement).value || '';
+	  const isArabic = this.plugin.detectArabicContent(v);
+	  headingSelect.setAttr('dir', isArabic ? 'rtl' : 'ltr');
+	  (headingSelect as HTMLSelectElement).style.textAlign = isArabic ? 'right' : 'left';
+	};
+	applyHeadingDir();
+	headingSelect.addEventListener('change', applyHeadingDir);
+  
+	// Selections list
+	const selectedList = contentEl.createDiv({ cls: 'selected-notes' });
+	selectedList.createEl('h3', { text: 'Notes to add' });
+	const listEl = selectedList.createEl('ul');
+	const selections: { heading: string; link: string }[] = [];
+	const addSelection = (heading: string, link: string) => {
+	  selections.push({ heading, link });
+	  const li = listEl.createEl('li');
+	  li.setText(`${heading}: [[${link}]]`);
+	};
+  
+	// Live note search (no [[...]])
+	const inputRow = contentEl.createDiv({ cls: 'form-row' });
+	const input = inputRow.createEl('input', { type: 'text', placeholder: 'Type to search notes, press Enter to add' });
+	const suggBox = contentEl.createDiv({ cls: 'wiki-suggest-box' });
+	const suggList = suggBox.createEl('ul', { cls: 'wiki-suggest-list' });
+	let allNotes: TFile[] = [];
+	try { allNotes = this.app.vault.getMarkdownFiles(); } catch {}
+	let activeIndex = -1;
+	let lastMatches: TFile[] = [];
+	const updateActive = () => {
+	  const items = Array.from(suggList.children) as HTMLElement[];
+	  items.forEach((el, idx) => { if (idx === activeIndex) el.addClass('active'); else el.removeClass('active'); });
+	};
+	const updateSuggestions = (query: string) => {
+	  suggList.empty();
+	  if (!query) return;
+	  const lower = query.toLowerCase();
+	  lastMatches = allNotes.filter(f => f.basename.toLowerCase().includes(lower) || f.path.toLowerCase().includes(lower)).slice(0, 50);
+	  lastMatches.forEach((f) => {
+		const item = suggList.createEl('li');
+		const btn = item.createEl('button', { text: `${f.basename} — ${f.path}` });
+		btn.addEventListener('click', () => {
+		  addSelection((headingSelect as HTMLSelectElement).value, f.basename);
+		  input.value = '';
+		  suggList.empty();
+		  lastMatches = [];
+		  activeIndex = -1;
+		});
+	  });
+	  activeIndex = lastMatches.length > 0 ? 0 : -1;
+	  updateActive();
+	};
+	input.addEventListener('input', () => {
+	  const v = input.value.trim();
+	  if (v.length === 0) { suggList.empty(); return; }
+	  updateSuggestions(v);
+	});
+	input.addEventListener('keydown', (ev) => {
+	  if (ev.key === 'ArrowDown') { ev.preventDefault(); if (lastMatches.length > 0) { activeIndex = (activeIndex + 1) % lastMatches.length; updateActive(); } return; }
+	  if (ev.key === 'ArrowUp') { ev.preventDefault(); if (lastMatches.length > 0) { activeIndex = (activeIndex - 1 + lastMatches.length) % lastMatches.length; updateActive(); } return; }
+	  if (ev.key === 'Enter') {
+		ev.preventDefault();
+		if (lastMatches.length > 0) {
+		  const chosen = lastMatches[Math.max(activeIndex, 0)];
+		  addSelection((headingSelect as HTMLSelectElement).value, chosen.basename);
+		  input.value = '';
+		  suggList.empty();
+		  lastMatches = [];
+		  activeIndex = -1;
+		}
+	  }
+	});
+  
+	// Buttons
+	const btns = contentEl.createDiv({ cls: 'button-container' });
+	const cancelBtn = btns.createEl('button', { text: 'Cancel' });
+	cancelBtn.addEventListener('click', () => this.close());
+	const insertBtn = btns.createEl('button', { text: 'Insert into Content' });
+	insertBtn.addEventListener('click', async () => {
+	  if (selections.length === 0) { new Notice('Add at least one note first.'); return; }
+	  const targetPath = normalizePath(`D/Projects/${projectName}/Content.md`);
+	  await this.ensureFolderExists(path.dirname(targetPath));
+	  let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
+	  if (!targetFile) targetFile = await this.app.vault.create(targetPath, `# Content\n`);
+	  let content = await this.app.vault.read(targetFile);
+	  const lines = content.split('\n');
+  
+	  // Ensure heading exists in order then append within its block
+	  // Ensure heading exists in order then append within its block
+// Ensure a heading exists, auto-reorder its whole block if misplaced,
+// then append the given line inside that block (before the next section).
+const ensureHeadingAndAppend = (headingText: string, toAppend: string) => {
+	const meta = headingMetaMap[headingText] || { level: 2, section: [] };
+  
+	// Helpers: robust normalization and digit conversion (Arabic + English)
+	const stripBidi = (s: string) => s.replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '');
+	const stripDiacritics = (s: string) =>
+	  s.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, ''); // Arabic diacritics
+	const toWesternDigits = (s: string) =>
+	  s.replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660))
+	   .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0));
+	const normalize = (s: string) =>
+	  stripDiacritics(
+		stripBidi(s)
+		  .replace(/^[#]+\s*/, '')
+		  .replace(/\u00A0/g, ' ')
+		  .replace(/\s+/g, ' ')
+		  .trim()
+		  .normalize('NFKC')
+	  ).toLowerCase();
+  
+	// Build index of existing headings (level + normalized text + numeric section found anywhere)
+	const existing = lines
+	  .map((l, idx) => {
+		const m = l.match(/^(#+)\s+(.+?)\s*$/);
+		if (!m) return null;
+		const level = m[1].length;
+		const rawText = m[2].trim();
+		const normText = normalize(rawText);
+		// Last numeric block anywhere in line, e.g. "B: Building 2.1.2" -> 2.1.2
+		const matches = toWesternDigits(normText).match(/(\d+(?:\.\d+)*)\b/g);
+		const secStr = matches ? matches[matches.length - 1] : null;
+		const section = secStr ? secStr.split('.').map(n => parseInt(n, 10)) : [];
+		return { idx, level, rawText, normText, section };
+	  })
+	  .filter(Boolean) as { idx: number; level: number; rawText: string; normText: string; section: number[] }[];
+  
+	const targetNorm = normalize(headingText);
+	const targetSection = (() => {
+	  const matches = toWesternDigits(targetNorm).match(/(\d+(?:\.\d+)*)\b/g);
+	  if (!matches) return [];
+	  const secStr = matches[matches.length - 1];
+	  return secStr.split('.').map(n => parseInt(n, 10));
+	})();
+  
+	// Prefer exact normalized text match (ignore level), else match by identical numeric section (ignore level)
+	let headerIndex = -1;
+	const textMatch = existing.find(h => h.normText === targetNorm);
+	if (textMatch) {
+	  headerIndex = textMatch.idx;
+	} else if (targetSection.length) {
+	  const sectionMatch = existing.find(
+		h => h.section.length === targetSection.length && h.section.every((n, i) => n === targetSection[i])
+	  );
+	  if (sectionMatch) headerIndex = sectionMatch.idx;
+	}
+  
+	// Compare numeric sections
+	const cmpSections = (a: number[], b: number[]) => {
+	  const len = Math.max(a.length, b.length);
+	  for (let i = 0; i < len; i++) {
+		const av = a[i] ?? -Infinity;
+		const bv = b[i] ?? -Infinity;
+		if (av !== bv) return av - bv;
+	  }
+	  return 0;
+	};
+  
+	// Compute the parent range [rangeStart, rangeEnd) where this heading should live
+	let rangeStart = 0;
+	let rangeEnd = lines.length;
+	const parentSection = targetSection.length > 1 ? targetSection.slice(0, -1) : [];
+  
+	// If top-level insertion, start after the document title (e.g., "# Content")
+	if (parentSection.length === 0 && meta.level === 1) {
+	  const firstHeadingIdx = lines.findIndex(l => /^#\s+/.test(l));
+	  if (firstHeadingIdx !== -1) rangeStart = Math.max(rangeStart, firstHeadingIdx + 1);
+	}
+  
+	if (parentSection.length > 0) {
+	  const parent = existing.find(
+		h => h.section.length === parentSection.length && h.section.every((n, i) => n === parentSection[i])
+	  );
+	  if (parent) {
+		rangeStart = parent.idx + 1;
+		const next = existing.find(h => h.idx > parent.idx && h.level <= parent.level);
+		rangeEnd = next ? next.idx : lines.length;
+	  }
+	}
+  
+	// Among headings of the same level within that range, compute the desired position
+	const sameLevel = existing.filter(h => h.level === meta.level && h.idx >= rangeStart && h.idx < rangeEnd);
+	const isNumbered = (h: { section: number[] }) => h.section.length > 0;
+  
+	let desiredInsertLine = rangeStart;
+	if (sameLevel.length > 0) {
+	  if (targetSection.length === 0) {
+		// Non-numbered go before numbered
+		const firstNumbered = sameLevel.find(h => isNumbered(h));
+		desiredInsertLine = firstNumbered ? firstNumbered.idx : Math.min(rangeEnd, sameLevel[sameLevel.length - 1].idx + 1);
+	  } else {
+		// Insert before the first heading whose numeric section is greater
+		const greater = sameLevel.find(h => isNumbered(h) && cmpSections(h.section, targetSection) > 0);
+		desiredInsertLine = greater ? greater.idx : Math.min(rangeEnd, sameLevel[sameLevel.length - 1].idx + 1);
+	  }
+	}
+  
+	// If the heading already exists but is out of order, move the entire heading block
+	if (headerIndex !== -1 && desiredInsertLine !== headerIndex) {
+	  // Determine the current block end (until next heading with level <= current)
+	  const currentLevel = ((lines[headerIndex].match(/^(#+)/) || [])[1] || '').length || meta.level;
+	  let blockEnd = headerIndex + 1;
+	  while (blockEnd < lines.length) {
+		const ln = lines[blockEnd];
+		if (ln.startsWith('#')) {
+		  const lvl = (ln.match(/^(#+)/) || [])[1]?.length || 0;
+		  if (lvl <= currentLevel) break;
+		}
+		blockEnd++;
+	  }
+  
+	  const block = lines.splice(headerIndex, blockEnd - headerIndex);
+	  if (desiredInsertLine > headerIndex) desiredInsertLine -= block.length;
+  
+	  // Keep one blank line before the block we reinsert
+	  if (desiredInsertLine > 0 && lines[desiredInsertLine - 1].trim() !== '') {
+		lines.splice(desiredInsertLine, 0, '');
+		desiredInsertLine += 1;
+	  }
+	  lines.splice(desiredInsertLine, 0, ...block);
+	  headerIndex = desiredInsertLine;
+	}
+  
+	// If the heading still doesn't exist, create it at the desired position
+	if (headerIndex === -1) {
+	  // Avoid creating a duplicate H1 that duplicates the document title
+	  if (meta.level === 1 && (targetNorm === 'content' || targetNorm === 'المحتوى')) {
+		const firstHeadingIdx = lines.findIndex(l => /^#\s+/.test(l));
+		const fallback = firstHeadingIdx !== -1 ? firstHeadingIdx + 1 : lines.length;
+		lines.splice(fallback, 0, toAppend);
+		return;
+	  }
+  
+	  if (desiredInsertLine > 0 && lines[desiredInsertLine - 1].trim() !== '') {
+		lines.splice(desiredInsertLine++, 0, '');
+	  }
+	  const hashes = '#'.repeat(Math.max(1, meta.level));
+	  lines.splice(desiredInsertLine, 0, `${hashes} ${headingText}`, '');
+	  headerIndex = desiredInsertLine;
+	}
+  
+	// Insert inside the block, just before the next same- or higher-level heading
+	const currentLevel = ((lines[headerIndex].match(/^(#+)/) || [])[1] || '').length || meta.level;
+	let insertAt = headerIndex + 1;
+	while (insertAt < lines.length) {
+	  const ln = lines[insertAt];
+	  if (ln.startsWith('#')) {
+		const lvl = (ln.match(/^(#+)/) || [])[1]?.length || 0;
+		if (lvl <= currentLevel) break;
+	  }
+	  insertAt++;
+	}
+	lines.splice(insertAt, 0, toAppend);
+  };
+  
+	  for (const sel of selections) ensureHeadingAndAppend(sel.heading, `- [[${sel.link}]]`);
+	  await this.app.vault.modify(targetFile, lines.join('\n'));
+		new Notice(`Inserted ${selections.length} link(s) into ${targetPath}`);
+		this.close();
+		});
+			}
+		}
 
+
+// Minimal Suggester modal (used by tp.system.suggester)
 class SuggesterModal extends Modal {
-	private resolve: (value: any) => void;
-	private displayTexts: string[];
-	private values: any[];
-	private placeholder: string;
-	
-	constructor(app: App, displayTexts: string[], values: any[], placeholder: string, resolve: (value: any) => void) {
-		super(app);
-		this.displayTexts = displayTexts;
-		this.values = values;
-		this.placeholder = placeholder;
-		this.resolve = resolve;
-	}
-	
-	onOpen() {
-		const { contentEl } = this;
-		
-		contentEl.createEl('h2', { text: this.placeholder || 'Select an option' });
-		
-		const listContainer = contentEl.createDiv({ cls: 'suggester-list-container' });
-		const list = listContainer.createEl('ul', { cls: 'suggester-list' });
-		
-		for (let i = 0; i < this.displayTexts.length; i++) {
-			const item = list.createEl('li');
-			const button = item.createEl('button', { text: this.displayTexts[i] });
-			
-			button.addEventListener('click', () => {
-				this.resolve(this.values[i]);
-				this.close();
-			});
-		}
-		
-		const cancelButton = contentEl.createEl('button', { text: 'Cancel' });
-		cancelButton.addEventListener('click', () => {
-			this.resolve(null);
-			this.close();
-		});
-	}
-	
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
-	}
+  private resolve: (value: any) => void;
+  private displayTexts: string[];
+  private values: any[];
+  private placeholder: string;
+
+  constructor(app: App, displayTexts: string[], values: any[], placeholder: string, resolve: (value: any) => void) {
+    super(app);
+    this.displayTexts = displayTexts;
+    this.values = values;
+    this.placeholder = placeholder;
+    this.resolve = resolve;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl('h2', { text: this.placeholder || 'Select an option' });
+    const list = contentEl.createEl('ul', { cls: 'suggester-list' });
+    this.displayTexts.forEach((text, i) => {
+      const li = list.createEl('li');
+      const btn = li.createEl('button', { text });
+      btn.addEventListener('click', () => { this.resolve(this.values[i]); this.close(); });
+    });
+    const cancel = contentEl.createEl('button', { text: 'Cancel' });
+    cancel.addEventListener('click', () => { this.resolve(null); this.close(); });
+  }
 }
 
+// Minimal Prompt modal (used by tp.system.prompt)
 class PromptModal extends Modal {
-	private resolve: (value: string | null) => void;
-	private promptText: string;
-	private defaultValue: string;
-	private placeholder: string;
-	
-	constructor(app: App, promptText: string, defaultValue: string, placeholder: string, resolve: (value: string | null) => void) {
-		super(app);
-		this.promptText = promptText;
-		this.defaultValue = defaultValue;
-		this.placeholder = placeholder;
-		this.resolve = resolve;
-	}
-	
-	onOpen() {
-		const { contentEl } = this;
-		
-		contentEl.createEl('h2', { text: 'Prompt' });
-		contentEl.createEl('p', { text: this.promptText });
-		
-		// Add styles for better text area appearance
-		contentEl.createEl('style', {
-			text: `
-				.prompt-textarea-container {
-					margin-top: 20px;
-					margin-bottom: 20px;
-					width: 100%;
-				}
-				.prompt-textarea-container textarea {
-					width: 100%;
-					min-height: 150px;
-					padding: 10px;
-					font-family: inherit;
-					border-radius: 5px;
-					resize: vertical;
-				}
-			`
-		});
-		
-		const textAreaContainer = contentEl.createDiv({ cls: 'prompt-textarea-container' });
-		const textArea = textAreaContainer.createEl('textarea', {
-			attr: {
-				rows: '10',
-				placeholder: this.placeholder || 'Enter your response',
-			}
-		});
-		textArea.value = this.defaultValue || '';
-		
-		// Set focus to the text area
-		setTimeout(() => {
-			textArea.focus();
-		}, 50);
-		
-		const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
-		
-		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
-		cancelButton.addEventListener('click', () => {
-			this.resolve(null);
-			this.close();
-		});
-		
-		const submitButton = buttonContainer.createEl('button', { text: 'Submit' });
-		submitButton.addEventListener('click', () => {
-			this.resolve(textArea.value);
-			this.close();
-		});
-	}
-	
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
-	}
+  private resolve: (value: string | null) => void;
+  private promptText: string;
+  private defaultValue: string;
+  private placeholder: string;
+
+  constructor(app: App, promptText: string, defaultValue: string, placeholder: string, resolve: (value: string | null) => void) {
+    super(app);
+    this.promptText = promptText;
+    this.defaultValue = defaultValue;
+    this.placeholder = placeholder;
+    this.resolve = resolve;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl('h2', { text: 'Prompt' });
+    contentEl.createEl('p', { text: this.promptText });
+    const input = contentEl.createEl('textarea', { attr: { rows: '8', placeholder: this.placeholder || '' } });
+    input.value = this.defaultValue || '';
+    const buttons = contentEl.createDiv({ cls: 'button-container' });
+    const cancel = buttons.createEl('button', { text: 'Cancel' });
+    cancel.addEventListener('click', () => { this.resolve(null); this.close(); });
+    const ok = buttons.createEl('button', { text: 'Submit' });
+    ok.addEventListener('click', () => { this.resolve(input.value); this.close(); });
+  }
 }
 
-class ABCsSettingTab extends PluginSettingTab {
-	plugin: ABCsOfControlPlugin;
-	
-	constructor(app: App, plugin: ABCsOfControlPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-	
-	display(): void {
-		const { containerEl } = this;
-		
-		containerEl.empty();
-		
-		containerEl.createEl('h2', { text: 'ABCs of Control Settings' });
-		
-		new Setting(containerEl)
-			.setName('Template Folder Path')
-			.setDesc('Path to the folder containing your templates')
-			.addText(text => text
-				.setPlaceholder('C/Templates')
-				.setValue(this.plugin.settings.templateFolderPath)
-				.onChange(async (value) => {
-					this.plugin.settings.templateFolderPath = value;
-					await this.plugin.saveSettings();
-				}));
-				
-		new Setting(containerEl)
-			.setName('Default Highlight Color')
-			.setDesc('Default Color for text highlighting')
-			.addDropdown(dropdown => dropdown
-				.addOption('yellow', 'Yellow')
-				.addOption('green', 'Green')
-				.addOption('red', 'Red')
-				.addOption('blue', 'Blue')
-				.addOption('gray', 'Gray')
-				.setValue(this.plugin.settings.defaultHighlightColor)
-				.onChange(async (value) => {
-					this.plugin.settings.defaultHighlightColor = value;
-					await this.plugin.saveSettings();
-				}));
-				
-		new Setting(containerEl)
-			.setName('Default Language')
-			.setDesc('Default language for section headers')
-			.addDropdown(dropdown => dropdown
-				.addOption('english', 'English')
-				.addOption('arabic', 'Arabic')
-				.setValue(this.plugin.settings.language || 'english')
-				.onChange(async (value) => {
-					this.plugin.settings.language = value;
-					await this.plugin.saveSettings();
-				}));
-	}
-}
-
-// Add ColorPickerModal class
+// Minimal ColorPicker modal (used by highlight UI)
 class ColorPickerModal extends Modal {
-	private colors: string[];
-	private defaultColor: string;
-	private resolve: (value: string | null) => void;
+  private colors: string[];
+  private defaultColor: string;
+  private resolve: (value: string | null) => void;
 
-	constructor(app: App, colors: string[], defaultColor: string, resolve: (value: string | null) => void) {
-		super(app);
-		this.colors = colors;
-		this.defaultColor = defaultColor;
-		this.resolve = resolve;
-	}
+  constructor(app: App, colors: string[], defaultColor: string, resolve: (value: string | null) => void) {
+    super(app);
+    this.colors = colors;
+    this.defaultColor = defaultColor;
+    this.resolve = resolve;
+  }
 
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.empty();
-		contentEl.addClass('color-picker-modal');
-		
-		contentEl.createEl('h2', { text: 'Select Highlight Color' });
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl('h2', { text: 'Select Highlight Color' });
+    const row = contentEl.createDiv({ cls: 'color-container' });
+    this.colors.forEach((c) => {
+      const sw = row.createDiv({ cls: 'color-swatch' });
+      sw.style.backgroundColor = c;
+      if (c === this.defaultColor) sw.addClass('selected');
+      sw.addEventListener('click', () => { this.resolve(c); this.close(); });
+    });
+    const buttons = contentEl.createDiv({ cls: 'button-container' });
+    const cancel = buttons.createEl('button', { text: 'Cancel' });
+    cancel.addEventListener('click', () => { this.resolve(null); this.close(); });
+  }
+}
 
-		const colorContainer = contentEl.createDiv({ cls: 'color-container' });
-
-		// Create color swatches
-		this.colors.forEach(color => {
-			const swatch = colorContainer.createDiv({ cls: 'color-swatch' });
-			swatch.style.backgroundColor = color;
-			
-			if (color === this.defaultColor) {
-				swatch.addClass('selected');
-			}
-
-			swatch.addEventListener('click', () => {
-				this.resolve(color);
-				this.close();
-			});
-		});
-
-		// Add cancel button
-		const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
-		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
-		cancelButton.addEventListener('click', () => {
-			this.resolve(null);
-			this.close();
-		});
-	}
-
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
-	}
+// Minimal settings tab used by plugin.onload addSettingTab
+class ABCsSettingTab extends PluginSettingTab {
+  plugin: ABCsOfControlPlugin;
+  constructor(app: App, plugin: ABCsOfControlPlugin) { super(app, plugin); this.plugin = plugin; }
+  display(): void {
+    const { containerEl } = this; containerEl.empty();
+    containerEl.createEl('h2', { text: 'ABCs of Control Settings' });
+    new Setting(containerEl)
+      .setName('Template Folder Path')
+      .setDesc('Path to the folder containing your templates')
+      .addText(t => t.setPlaceholder('C/Templates').setValue(this.plugin.settings.templateFolderPath).onChange(async (v) => { this.plugin.settings.templateFolderPath = v; await this.plugin.saveSettings(); }));
+    new Setting(containerEl)
+      .setName('Default Highlight Color')
+      .setDesc('Default Color for text highlighting')
+      .addDropdown(d => d.addOption('yellow', 'Yellow').addOption('green', 'Green').addOption('red', 'Red').addOption('blue', 'Blue').addOption('gray', 'Gray').setValue(this.plugin.settings.defaultHighlightColor).onChange(async (v) => { this.plugin.settings.defaultHighlightColor = v; await this.plugin.saveSettings(); }));
+    new Setting(containerEl)
+      .setName('Default Language')
+      .setDesc('Default language for section headers')
+      .addDropdown(d => d.addOption('english', 'English').addOption('arabic', 'Arabic').setValue(this.plugin.settings.language || 'english').onChange(async (v) => { this.plugin.settings.language = v; await this.plugin.saveSettings(); }));
+  }
 }
