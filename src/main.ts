@@ -1449,19 +1449,68 @@ const ensureHeadingAndAppend = (headingText: string, toAppend: string) => {
 	if (targetIndex === -1) {
 		// Simple approach: just add heading at the end
 		const hashes = '#'.repeat(meta.level);
-		lines.push('', `${hashes} ${headingText}`, '');
-		targetIndex = lines.length - 2;
+		
+		// Parse section number to find correct insertion position
+		const parseSection = (text: string): number[] => {
+			const normalized = text.replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660))
+							  .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0));
+			const m = normalized.match(/^\s*(\d+(?:\.\d+)*)\b\.?/);
+			return m ? m[1].split('.').map(n => parseInt(n, 10)) : [];
+		};
+		
+		const targetSection = parseSection(headingText);
+		let insertAt = lines.length;
+		
+		// Only try to find position if this heading has a section number
+		if (targetSection.length > 0) {
+			// Find the right position by comparing with existing headings
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[i];
+				const m = line.match(/^(#+)\s+(.+?)\s*$/);
+				if (m) {
+					const text = m[2].trim();
+					const section = parseSection(text);
+					
+					// If existing heading has section number and target should come before it
+					if (section.length > 0 && compareSection(targetSection, section) < 0) {
+						insertAt = i;
+						break;
+					}
+				}
+			}
+		}
+		
+		// Insert the heading at the found position
+		if (insertAt >= lines.length) {
+			// Insert at end
+			lines.push('', `${hashes} ${headingText}`, '');
+			targetIndex = lines.length - 2;
+		} else {
+			// Insert at specific position
+			lines.splice(insertAt, 0, '', `${hashes} ${headingText}`, '');
+			targetIndex = insertAt + 1;
+		}
 	}
 	
 	// Find end of this section and insert content
 	let insertAt = targetIndex + 1;
+	
+	// Skip any existing content immediately after the heading (but not subsections)
 	while (insertAt < lines.length) {
-	  const line = lines[insertAt];
-	  if (line.startsWith('#')) {
-		const level = (line.match(/^(#+)/) || [])[1]?.length || 0;
-		if (level <= meta.level) break;
-	  }
-	  insertAt++;
+		const line = lines[insertAt];
+		
+		// If we hit a heading, stop here
+		if (line.startsWith('#')) {
+			break;
+		}
+		
+		// If we hit a non-empty content line, skip it
+		if (line.trim() !== '') {
+			insertAt++;
+		} else {
+			// Empty line - this is a good place to insert
+			break;
+		}
 	}
 	
 	lines.splice(insertAt, 0, toAppend);
