@@ -1416,171 +1416,149 @@ async handleContentToDProjects(template: TFile) {
 	  // Ensure heading exists in order then append within its block
 // Ensure a heading exists, auto-reorder its whole block if misplaced,
 // then append the given line inside that block (before the next section).
+// Ensure a heading exists (based on LEADING section number), auto-reorder its block if misplaced,
+// then append the given line inside that block (before the next same-or-higher level heading).
+// Helper function to compare section numbers
+const compareSection = (a: number[], b: number[]): number => {
+    const len = Math.max(a.length, b.length);
+    for (let i = 0; i < len; i++) {
+      const av = a[i] ?? 0;
+      const bv = b[i] ?? 0;
+      if (av !== bv) return av - bv;
+    }
+    return a.length - b.length;
+  };
 const ensureHeadingAndAppend = (headingText: string, toAppend: string) => {
 	const meta = headingMetaMap[headingText] || { level: 2, section: [] };
-  
-	// Helpers: robust normalization and digit conversion (Arabic + English)
-	const stripBidi = (s: string) => s.replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '');
-	const stripDiacritics = (s: string) =>
-	  s.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, ''); // Arabic diacritics
-	const toWesternDigits = (s: string) =>
-	  s.replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660))
-	   .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0));
-	const normalize = (s: string) =>
-	  stripDiacritics(
-		stripBidi(s)
-		  .replace(/^[#]+\s*/, '')
-		  .replace(/\u00A0/g, ' ')
-		  .replace(/\s+/g, ' ')
-		  .trim()
-		  .normalize('NFKC')
-	  ).toLowerCase();
-  
-	// Build index of existing headings (level + normalized text + numeric section found anywhere)
-	const existing = lines
-	  .map((l, idx) => {
-		const m = l.match(/^(#+)\s+(.+?)\s*$/);
-		if (!m) return null;
-		const level = m[1].length;
-		const rawText = m[2].trim();
-		const normText = normalize(rawText);
-		// Last numeric block anywhere in line, e.g. "B: Building 2.1.2" -> 2.1.2
-		const matches = toWesternDigits(normText).match(/(\d+(?:\.\d+)*)\b/g);
-		const secStr = matches ? matches[matches.length - 1] : null;
-		const section = secStr ? secStr.split('.').map(n => parseInt(n, 10)) : [];
-		return { idx, level, rawText, normText, section };
-	  })
-	  .filter(Boolean) as { idx: number; level: number; rawText: string; normText: string; section: number[] }[];
-  
-	const targetNorm = normalize(headingText);
-	const targetSection = (() => {
-	  const matches = toWesternDigits(targetNorm).match(/(\d+(?:\.\d+)*)\b/g);
-	  if (!matches) return [];
-	  const secStr = matches[matches.length - 1];
-	  return secStr.split('.').map(n => parseInt(n, 10));
-	})();
-  
-	// Prefer exact normalized text match (ignore level), else match by identical numeric section (ignore level)
-	let headerIndex = -1;
-	const textMatch = existing.find(h => h.normText === targetNorm);
-	if (textMatch) {
-	  headerIndex = textMatch.idx;
-	} else if (targetSection.length) {
-	  const sectionMatch = existing.find(
-		h => h.section.length === targetSection.length && h.section.every((n, i) => n === targetSection[i])
-	  );
-	  if (sectionMatch) headerIndex = sectionMatch.idx;
-	}
-  
-	// Compare numeric sections
-	const cmpSections = (a: number[], b: number[]) => {
-	  const len = Math.max(a.length, b.length);
-	  for (let i = 0; i < len; i++) {
-		const av = a[i] ?? -Infinity;
-		const bv = b[i] ?? -Infinity;
-		if (av !== bv) return av - bv;
-	  }
-	  return 0;
-	};
-  
-	// Compute the parent range [rangeStart, rangeEnd) where this heading should live
-	let rangeStart = 0;
-	let rangeEnd = lines.length;
-	const parentSection = targetSection.length > 1 ? targetSection.slice(0, -1) : [];
-  
-	// If top-level insertion, start after the document title (e.g., "# Content")
-	if (parentSection.length === 0 && meta.level === 1) {
-	  const firstHeadingIdx = lines.findIndex(l => /^#\s+/.test(l));
-	  if (firstHeadingIdx !== -1) rangeStart = Math.max(rangeStart, firstHeadingIdx + 1);
-	}
-  
-	if (parentSection.length > 0) {
-	  const parent = existing.find(
-		h => h.section.length === parentSection.length && h.section.every((n, i) => n === parentSection[i])
-	  );
-	  if (parent) {
-		rangeStart = parent.idx + 1;
-		const next = existing.find(h => h.idx > parent.idx && h.level <= parent.level);
-		rangeEnd = next ? next.idx : lines.length;
+	
+	// Simple approach: find or create heading, insert content, then sort everything
+	let targetIndex = -1;
+	
+	// Look for existing heading by exact text match
+	for (let i = 0; i < lines.length; i++) {
+	  const line = lines[i];
+	  const m = line.match(/^(#+)\s+(.+?)\s*$/);
+	  if (m && m[1].length === meta.level && m[2].trim() === headingText) {
+		targetIndex = i;
+		break;
 	  }
 	}
-  
-	// Among headings of the same level within that range, compute the desired position
-	const sameLevel = existing.filter(h => h.level === meta.level && h.idx >= rangeStart && h.idx < rangeEnd);
-	const isNumbered = (h: { section: number[] }) => h.section.length > 0;
-  
-	let desiredInsertLine = rangeStart;
-	if (sameLevel.length > 0) {
-	  if (targetSection.length === 0) {
-		// Non-numbered go before numbered
-		const firstNumbered = sameLevel.find(h => isNumbered(h));
-		desiredInsertLine = firstNumbered ? firstNumbered.idx : Math.min(rangeEnd, sameLevel[sameLevel.length - 1].idx + 1);
-	  } else {
-		// Insert before the first heading whose numeric section is greater
-		const greater = sameLevel.find(h => isNumbered(h) && cmpSections(h.section, targetSection) > 0);
-		desiredInsertLine = greater ? greater.idx : Math.min(rangeEnd, sameLevel[sameLevel.length - 1].idx + 1);
-	  }
+	
+	// If heading doesn't exist, create it
+	// If heading doesn't exist, create it
+	if (targetIndex === -1) {
+		// Simple approach: just add heading at the end
+		const hashes = '#'.repeat(meta.level);
+		lines.push('', `${hashes} ${headingText}`, '');
+		targetIndex = lines.length - 2;
 	}
-  
-	// If the heading already exists but is out of order, move the entire heading block
-	if (headerIndex !== -1 && desiredInsertLine !== headerIndex) {
-	  // Determine the current block end (until next heading with level <= current)
-	  const currentLevel = ((lines[headerIndex].match(/^(#+)/) || [])[1] || '').length || meta.level;
-	  let blockEnd = headerIndex + 1;
-	  while (blockEnd < lines.length) {
-		const ln = lines[blockEnd];
-		if (ln.startsWith('#')) {
-		  const lvl = (ln.match(/^(#+)/) || [])[1]?.length || 0;
-		  if (lvl <= currentLevel) break;
-		}
-		blockEnd++;
-	  }
-  
-	  const block = lines.splice(headerIndex, blockEnd - headerIndex);
-	  if (desiredInsertLine > headerIndex) desiredInsertLine -= block.length;
-  
-	  // Keep one blank line before the block we reinsert
-	  if (desiredInsertLine > 0 && lines[desiredInsertLine - 1].trim() !== '') {
-		lines.splice(desiredInsertLine, 0, '');
-		desiredInsertLine += 1;
-	  }
-	  lines.splice(desiredInsertLine, 0, ...block);
-	  headerIndex = desiredInsertLine;
-	}
-  
-	// If the heading still doesn't exist, create it at the desired position
-	if (headerIndex === -1) {
-	  // Avoid creating a duplicate H1 that duplicates the document title
-	  if (meta.level === 1 && (targetNorm === 'content' || targetNorm === 'المحتوى')) {
-		const firstHeadingIdx = lines.findIndex(l => /^#\s+/.test(l));
-		const fallback = firstHeadingIdx !== -1 ? firstHeadingIdx + 1 : lines.length;
-		lines.splice(fallback, 0, toAppend);
-		return;
-	  }
-  
-	  if (desiredInsertLine > 0 && lines[desiredInsertLine - 1].trim() !== '') {
-		lines.splice(desiredInsertLine++, 0, '');
-	  }
-	  const hashes = '#'.repeat(Math.max(1, meta.level));
-	  lines.splice(desiredInsertLine, 0, `${hashes} ${headingText}`, '');
-	  headerIndex = desiredInsertLine;
-	}
-  
-	// Insert inside the block, just before the next same- or higher-level heading
-	const currentLevel = ((lines[headerIndex].match(/^(#+)/) || [])[1] || '').length || meta.level;
-	let insertAt = headerIndex + 1;
+	
+	// Find end of this section and insert content
+	let insertAt = targetIndex + 1;
 	while (insertAt < lines.length) {
-	  const ln = lines[insertAt];
-	  if (ln.startsWith('#')) {
-		const lvl = (ln.match(/^(#+)/) || [])[1]?.length || 0;
-		if (lvl <= currentLevel) break;
+	  const line = lines[insertAt];
+	  if (line.startsWith('#')) {
+		const level = (line.match(/^(#+)/) || [])[1]?.length || 0;
+		if (level <= meta.level) break;
 	  }
 	  insertAt++;
 	}
+	
 	lines.splice(insertAt, 0, toAppend);
+	
+	// Don't sort after each insertion - we'll sort once at the end
+	// sortHeadingsGlobally();
+  };
+
+  
+
+  // Helper function to sort all headings
+  const sortHeadingsGlobally = () => {
+    const parseSection = (text: string): number[] => {
+      const normalized = text.replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660))
+                          .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0));
+      const m = normalized.match(/^\s*(\d+(?:\.\d+)*)\b\.?/);
+      return m ? m[1].split('.').map(n => parseInt(n, 10)) : [];
+    };
+    
+    // Extract all headings with their info
+    const headings: Array<{level: number, section: number[], idx: number, text: string}> = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const m = line.match(/^(#+)\s+(.+?)\s*$/);
+      if (m) {
+        const level = m[1].length;
+        const text = m[2].trim();
+        const section = parseSection(text);
+        headings.push({level, section, idx: i, text});
+      }
+    }
+    
+    // Sort headings by their section numbers
+    headings.sort((a, b) => {
+      // Handle case where one or both have no section numbers
+      if (a.section.length === 0 && b.section.length === 0) return 0;
+      if (a.section.length === 0) return 1; // Non-numbered go after numbered
+      if (b.section.length === 0) return -1; // Non-numbered go after numbered
+      
+      // Compare section numbers hierarchically
+      const len = Math.max(a.section.length, b.section.length);
+      for (let i = 0; i < len; i++) {
+        const av = a.section[i] ?? 0;
+        const bv = b.section[i] ?? 0;
+        if (av !== bv) return av - bv;
+      }
+      // If all numbers are equal, shorter section comes first (parent before child)
+      return a.section.length - b.section.length;
+    });
+    
+    // Create a new lines array with sorted headings
+    const newLines: string[] = [];
+    const usedIndices = new Set<number>();
+    
+    // Keep everything before first heading
+    const firstH1 = lines.findIndex(l => /^#\s+/.test(l));
+    if (firstH1 > 0) {
+      newLines.push(...lines.slice(0, firstH1));
+    }
+    
+    // Add page title first (if it has no section number)
+    const pageTitle = headings.find(h => h.idx === firstH1 && h.section.length === 0);
+    if (pageTitle) {
+      newLines.push(lines[pageTitle.idx]);
+      usedIndices.add(pageTitle.idx);
+      
+      // Add any content immediately after page title (before next heading)
+      let contentIdx = pageTitle.idx + 1;
+      while (contentIdx < lines.length && !lines[contentIdx].startsWith('#')) {
+        newLines.push(lines[contentIdx]);
+        contentIdx++;
+      }
+    }
+    
+    // Add sorted headings with their content
+    for (const heading of headings) {
+      if (heading.section.length > 0 && !usedIndices.has(heading.idx)) {
+        // Add the heading
+        newLines.push(lines[heading.idx]);
+        usedIndices.add(heading.idx);
+        
+        // Add content until next heading
+        let contentIdx = heading.idx + 1;
+        while (contentIdx < lines.length && !lines[contentIdx].startsWith('#')) {
+          newLines.push(lines[contentIdx]);
+          contentIdx++;
+        }
+      }
+    }
+    
+    // Replace the original lines array
+    lines.splice(0, lines.length, ...newLines);
   };
   
 	  for (const sel of selections) ensureHeadingAndAppend(sel.heading, `- [[${sel.link}]]`);
+	  // Disabled sortHeadingsGlobally() - it creates duplicates
 	  await this.app.vault.modify(targetFile, lines.join('\n'));
 		new Notice(`Inserted ${selections.length} link(s) into ${targetPath}`);
 		this.close();
