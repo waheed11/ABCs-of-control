@@ -1,2 +1,2 @@
-- name: CodeBoarding [Diagram-First Documentation]
-  uses: CodeBoarding/CodeBoarding-GHAction@0.1.2
+name: CodeBoarding [Diagram-First Documentation]
+uses: CodeBoarding/CodeBoarding-GHAction@0.1.2
