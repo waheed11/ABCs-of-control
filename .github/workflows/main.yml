@@ -16,7 +16,7 @@ jobs:
           fetch-depth: 0  # Required to access branch history
         
       - name: Generate Documentation
-        uses: codeboarding/codeboarding-ghaction@v1
+        uses: codeboarding/codeboarding-ghaction@0.1.2
         with:
           repository_url: ${{ github.server_url }}/${{ github.repository }}
           source_branch: ${{ github.head_ref || github.ref_name }}
