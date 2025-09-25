@@ -1104,6 +1104,15 @@ class ABCsModal extends Modal {
 								}
 							});
 							inputFields[fullToken] = ta as HTMLTextAreaElement;
+						} else if (displayNameLC.includes('prompt')) {
+							// Render main note as a textarea and moved up under tags via ordering
+							const ta = row.createEl('textarea', {
+								attr: {
+									rows: '10',
+									placeholder: 'Write your prompt here'
+								}
+							});
+							inputFields[fullToken] = ta as HTMLTextAreaElement;
 						} else if (/\bverified\b/i.test(displayName)) {
 							// Yes/No radio group
 							const group = row.createDiv({ cls: 'radio-group' });
