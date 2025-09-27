@@ -117,7 +117,14 @@ export async function getTemplateFiles(app: App, templateFolderPath: string): Pr
 				templateMap.set('D', letterFiles);
 				continue;
 			}
-			
+			// Check if the file name starts with our special Tips-to-E-Exams- prefix
+			if (fileName.startsWith('Tips-to-E-Exams-')) {
+				// Force-list under E
+				const letterFiles = templateMap.get('E') || [];
+				letterFiles.push(file);
+				templateMap.set('E', letterFiles);
+				continue;
+			}
 			// Check if the file name starts with "Insert-to-"
 			if (fileName.startsWith('Insert-to-')) {
 				// Extract the letter after "Insert-to-"

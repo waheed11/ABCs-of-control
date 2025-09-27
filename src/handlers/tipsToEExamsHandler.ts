@@ -3,7 +3,7 @@ import * as path from 'path';
 import { HeadingMeta, Selection } from '../types';
 import { ensureFolderExists, parseSection, compareSection, detectArabicContent } from '../utils';
 
-export class ContentToDProjectsHandler {
+export class TipsToEExamsHandler {
 	private app: App;
 
 	constructor(app: App) {
@@ -11,84 +11,82 @@ export class ContentToDProjectsHandler {
 	}
 
 	/**
-	 * Handle Content-to-D-Projects template processing with proper numeric ordering
-	 * Based on the working implementation from memories
+	 * Handle Tips-to-E-Exams template processing with proper numeric ordering
+	 * Based on the working implementation from ContentToDProjectsHandler
 	 */
-	async handleContentToDProjects(templates: TFile[], initialTemplate: TFile, contentEl: HTMLElement, closeModal: () => void) {
+	async handleTipsToEExams(templates: TFile[], initialTemplate: TFile, contentEl: HTMLElement, closeModal: () => void) {
 		contentEl.empty();
 
-		// Extract project names from all templates
-		const prefix = 'Content-to-D-Projects-';
-		const projects: { name: string; template: TFile }[] = templates.map(template => ({
+		// Extract exam names from all templates
+		const prefix = 'Tips-to-E-Exams-';
+		const exams: { name: string; template: TFile }[] = templates.map(template => ({
 			name: template.basename.startsWith(prefix) 
 				? template.basename.substring(prefix.length)
 				: template.basename,
 			template
 		}));
 		
-		// Sort projects alphabetically
-		projects.sort((a, b) => a.name.localeCompare(b.name));
+		// Sort exams alphabetically
+		exams.sort((a, b) => a.name.localeCompare(b.name));
 		
-		// Find initial project
-		const initialProjectName = initialTemplate.basename.startsWith(prefix)
+		// Find initial exam
+		const initialExamName = initialTemplate.basename.startsWith(prefix)
 			? initialTemplate.basename.substring(prefix.length)
 			: initialTemplate.basename;
 		
-		let currentProject = projects.find(p => p.name === initialProjectName) || projects[0];
-		if (!currentProject) {
-			new Notice('No Content-to-D-Projects templates found.');
+		let currentExam = exams.find(e => e.name === initialExamName) || exams[0];
+		if (!currentExam) {
+			new Notice('No Tips-to-E-Exams templates found.');
 			closeModal();
 			return;
 		}
 		
-		// Create project selection UI
-		contentEl.createEl('h2', { text: 'Add content to D/Projects' });
+		// Create exam selection UI
+		contentEl.createEl('h2', { text: 'Add tips to E/Exams' });
 		
-		const projectRow = contentEl.createDiv({ cls: 'form-row' });
-		projectRow.createEl('label', { text: 'Project:' });
-		const projectSelect = projectRow.createEl('select');
-		projects.forEach(project => {
-			const option = projectSelect.createEl('option');
-			option.value = project.name;
-			option.text = project.name;
-			if (project.name === currentProject.name) {
+		const examRow = contentEl.createDiv({ cls: 'form-row' });
+		examRow.createEl('label', { text: 'Exam:' });
+		const examSelect = examRow.createEl('select');
+		exams.forEach(exam => {
+			const option = examSelect.createEl('option');
+			option.value = exam.name;
+			option.text = exam.name;
+			if (exam.name === currentExam.name) {
 				option.selected = true;
 			}
 		});
 		
-		// Function to load project template and update UI
-		const loadProject = async (projectName: string) => {
-			const project = projects.find(p => p.name === projectName);
-			if (!project) return;
+		// Function to load exam template and update UI
+		const loadExam = async (examName: string) => {
+			const exam = exams.find(e => e.name === examName);
+			if (!exam) return;
 			
-			currentProject = project;
-			const templateContent = await this.app.vault.read(project.template);
+			currentExam = exam;
+			const templateContent = await this.app.vault.read(exam.template);
 			
 			// Clear and rebuild the rest of the UI
-			const existingContent = contentEl.querySelector('.project-content');
+			const existingContent = contentEl.querySelector('.exam-content');
 			if (existingContent) {
 				existingContent.remove();
 			}
 			
-			await this.buildProjectUI(templateContent, projectName, contentEl, closeModal);
+			await this.buildExamUI(templateContent, examName, contentEl, closeModal);
 		};
 		
-		// Project selection change handler
-		projectSelect.addEventListener('change', async () => {
-			await loadProject((projectSelect as HTMLSelectElement).value);
+		// Exam selection change handler
+		examSelect.addEventListener('change', async () => {
+			await loadExam((examSelect as HTMLSelectElement).value);
 		});
 		
-		// Load initial project
-		await loadProject(currentProject.name);
+		// Load initial exam
+		await loadExam(currentExam.name);
 	}
-		/**
-	 * Build the project-specific UI (headings, selections, etc.)
+
+	/**
+	 * Build the exam-specific UI (headings, selections, etc.)
 	 */
-			/**
-	 * Build the project-specific UI (headings, selections, etc.)
-	 */
-	private async buildProjectUI(templateContent: string, projectName: string, contentEl: HTMLElement, closeModal: () => void) {
-		const projectContainer = contentEl.createDiv({ cls: 'project-content' });
+	private async buildExamUI(templateContent: string, examName: string, contentEl: HTMLElement, closeModal: () => void) {
+		const examContainer = contentEl.createDiv({ cls: 'exam-content' });
 		
 		// Parse headings with level and numeric section (e.g., 1.2.3)
 		const headings: string[] = [];
@@ -110,11 +108,10 @@ export class ContentToDProjectsHandler {
 			return;
 		}
 		
-		projectContainer.createEl('h3', { text: `Add notes to ${projectName}/Content` });
+		examContainer.createEl('h3', { text: `Add tips to ${examName}/Tips` });
 		
-			
-			// Heading dropdown (auto RTL/LTR per selection)
-		const headingRow = projectContainer.createDiv({ cls: 'form-row' });
+		// Heading dropdown (auto RTL/LTR per selection)
+		const headingRow = examContainer.createDiv({ cls: 'form-row' });
 		headingRow.createEl('label', { text: 'Heading:' });
 		const headingSelect = headingRow.createEl('select');
 		headings.forEach(h => {
@@ -134,8 +131,8 @@ export class ContentToDProjectsHandler {
 		headingSelect.addEventListener('change', applyHeadingDir);
 		
 		// Selections list
-		const selectedList = projectContainer.createDiv({ cls: 'selected-notes' });
-		selectedList.createEl('h3', { text: 'Notes to add' });
+		const selectedList = examContainer.createDiv({ cls: 'selected-notes' });
+		selectedList.createEl('h3', { text: 'Tips to add' });
 		const listEl = selectedList.createEl('ul');
 		const selections: Selection[] = [];
 		
@@ -152,12 +149,12 @@ export class ContentToDProjectsHandler {
 		};
 		
 		// Live note search
-		const inputRow = projectContainer.createDiv({ cls: 'form-row' });
+		const inputRow = examContainer.createDiv({ cls: 'form-row' });
 		const input = inputRow.createEl('input', { 
 			type: 'text', 
 			placeholder: 'Type to search notes, press Enter to add' 
 		});
-		const suggBox = projectContainer.createDiv({ cls: 'wiki-suggest-box' });
+		const suggBox = examContainer.createDiv({ cls: 'wiki-suggest-box' });
 		const suggList = suggBox.createEl('ul', { cls: 'wiki-suggest-list' });
 		
 		let allNotes: TFile[] = [];
@@ -238,11 +235,12 @@ export class ContentToDProjectsHandler {
 				}
 			}
 		});
-				// Text area for custom text input
-		const textAreaRow = projectContainer.createDiv({ cls: 'form-row' });
+		
+		// Text area for custom text input
+		const textAreaRow = examContainer.createDiv({ cls: 'form-row' });
 		textAreaRow.createEl('label', { text: 'Or add custom text:' });
 		const textArea = textAreaRow.createEl('textarea', { 
-			placeholder: 'Enter custom text to add under the selected heading...',
+			placeholder: 'Enter custom tips to add under the selected heading...',
 			attr: { rows: '3', style: 'width: 100%; margin-top: 5px;' }
 		});
 
@@ -257,24 +255,25 @@ export class ContentToDProjectsHandler {
 				textArea.value = '';
 			}
 		});
-		// Buttons
-		const buttonContainer = projectContainer.createDiv({ cls: 'button-container' });
-		const cancelButton = buttonContainer.createEl('button', { text: 'Close' });
-		cancelButton.addEventListener('click', () => closeModal());
 		
-		const insertButton = buttonContainer.createEl('button', { text: 'Insert into Content' });
+		// Buttons
+		const buttonContainer = examContainer.createDiv({ cls: 'button-container' });
+		const closeButton = buttonContainer.createEl('button', { text: 'Close' });
+		closeButton.addEventListener('click', () => closeModal());
+		
+		const insertButton = buttonContainer.createEl('button', { text: 'Insert into Tips' });
 		insertButton.addEventListener('click', async () => {
 			if (selections.length === 0) { 
 				new Notice('Add at least one note or text first.'); 
 				return; 
 			}
 			
-			const targetPath = normalizePath(`D/Projects/${projectName}/Content.md`);
+			const targetPath = normalizePath(`E/Exams/${examName}/Tips.md`);
 			await ensureFolderExists(this.app, path.dirname(targetPath));
 			
 			let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
 			if (!targetFile) {
-				targetFile = await this.app.vault.create(targetPath, `# Content\n`);
+				targetFile = await this.app.vault.create(targetPath, `# Tips\n`);
 			}
 			
 			let content = await this.app.vault.read(targetFile);
@@ -378,9 +377,7 @@ export class ContentToDProjectsHandler {
 			textArea.value = '';
 
 			// Show success feedback and keep modal open for more additions
-			new Notice(`✅ Content added to ${projectName}! You can now switch projects or add more content.`);
+			new Notice(`✅ Tips added to ${examName}! You can now switch exams or add more tips.`);
 		});
-		}	
-		
 	}
-
+}

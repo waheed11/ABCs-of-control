@@ -7,18 +7,20 @@ import { SuggesterModal } from './SuggesterModal';
 import { PromptModal } from './PromptModal';
 import { ContentToDProjectsHandler } from '../handlers/contentToDProjectsHandler';
 import { NoteCreationHandler } from '../handlers/noteCreationHandler';
-
+import { TipsToEExamsHandler } from '../handlers/tipsToEExamsHandler';
 export class ABCsModal extends Modal {
 	plugin: any; // Will be properly typed when we refactor the main plugin
 	templateMap: Map<string, TFile[]> = new Map();
 	selectedTemplate: TFile | null = null;
 	private contentToDProjectsHandler: ContentToDProjectsHandler;
+    private tipsToEExamsHandler: TipsToEExamsHandler;
 	private noteCreationHandler: NoteCreationHandler;
 	
 	constructor(app: App, plugin: any) {
 		super(app);
 		this.plugin = plugin;
 		this.contentToDProjectsHandler = new ContentToDProjectsHandler(app);
+        this.tipsToEExamsHandler = new TipsToEExamsHandler(app);
 		this.noteCreationHandler = new NoteCreationHandler(app);
 	}
 	
@@ -100,7 +102,11 @@ export class ABCsModal extends Modal {
                     await this.handleContentToDProjects(template);
                     return;
                 }
-                
+                // Handle special Tips-to-E-Exams templates
+                if (template.basename.startsWith('Tips-to-E-Exams-')) {
+                    await this.handleTipsToEExams(template);
+                    return;
+                }
                 // Check if this is an "Insert-to-" template
                 if (template.basename.startsWith('Insert-to-')) {
                     // Read template content
@@ -134,13 +140,33 @@ export class ABCsModal extends Modal {
     }
 	
 	async handleContentToDProjects(template: TFile) {
+        // Collect all Content-to-D-Projects templates
+        const allTemplates = this.app.vault.getMarkdownFiles();
+        const projectTemplates = allTemplates.filter(file => 
+            file.basename.startsWith('Content-to-D-Projects-')
+        );
+        
         await this.contentToDProjectsHandler.handleContentToDProjects(
-            template, 
+            projectTemplates, 
+            template, // Pass the initially selected template
             this.contentEl, 
             () => this.close()
         );
     }
-
+    async handleTipsToEExams(template: TFile) {
+        // Collect all Tips-to-E-Exams templates
+        const allTemplates = this.app.vault.getMarkdownFiles();
+        const examTemplates = allTemplates.filter(file => 
+            file.basename.startsWith('Tips-to-E-Exams-')
+        );
+        
+        await this.tipsToEExamsHandler.handleTipsToEExams(
+            examTemplates, 
+            template, // Pass the initially selected template
+            this.contentEl, 
+            () => this.close()
+        );
+    }
     /**
  * Handle Insert-to template processing
  */
