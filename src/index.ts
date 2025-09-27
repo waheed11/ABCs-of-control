@@ -13,6 +13,7 @@ export * from './handlers/quoteHandler';
 export * from './handlers/contentToDProjectsHandler';
 export * from './handlers/noteCreationHandler';
 export * from './handlers/tipsToEExamsHandler';
+export * from './handlers/archiveHandler';
 
 // Modals
 export * from './modals/ABCsModal';

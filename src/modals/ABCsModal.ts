@@ -8,12 +8,14 @@ import { PromptModal } from './PromptModal';
 import { ContentToDProjectsHandler } from '../handlers/contentToDProjectsHandler';
 import { NoteCreationHandler } from '../handlers/noteCreationHandler';
 import { TipsToEExamsHandler } from '../handlers/tipsToEExamsHandler';
+import { ArchiveHandler } from '../handlers/archiveHandler';
 export class ABCsModal extends Modal {
 	plugin: any; // Will be properly typed when we refactor the main plugin
 	templateMap: Map<string, TFile[]> = new Map();
 	selectedTemplate: TFile | null = null;
 	private contentToDProjectsHandler: ContentToDProjectsHandler;
     private tipsToEExamsHandler: TipsToEExamsHandler;
+    private archiveHandler: ArchiveHandler;
 	private noteCreationHandler: NoteCreationHandler;
 	
 	constructor(app: App, plugin: any) {
@@ -21,6 +23,7 @@ export class ABCsModal extends Modal {
 		this.plugin = plugin;
 		this.contentToDProjectsHandler = new ContentToDProjectsHandler(app);
         this.tipsToEExamsHandler = new TipsToEExamsHandler(app);
+        this.archiveHandler = new ArchiveHandler(app);
 		this.noteCreationHandler = new NoteCreationHandler(app);
 	}
 	
@@ -89,7 +92,18 @@ export class ABCsModal extends Modal {
         }
         
         const templateList = templateListContainer.createEl('ul', { cls: 'template-list' });
-        
+        // Add Archive Now button for E letter
+            if (letter === 'E') {
+                const archiveItem = templateList.createEl('li');
+                const archiveButton = archiveItem.createEl('button', { 
+                    text: '📦 Archive Now',
+                    cls: 'archive-now-button'
+                });
+                
+                archiveButton.addEventListener('click', async () => {
+                    await this.archiveHandler.archiveTaggedNotes();
+                });
+            }
         for (const template of templates) {
             const listItem = templateList.createEl('li');
             const templateButton = listItem.createEl('button', { text: template.basename });
