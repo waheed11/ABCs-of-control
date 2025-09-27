@@ -73,10 +73,16 @@ export class ContentToDProjectsHandler {
 		const listEl = selectedList.createEl('ul');
 		const selections: Selection[] = [];
 		
-		const addSelection = (heading: string, link: string) => {
-			selections.push({ heading, link });
-			const li = listEl.createEl('li');
-			li.setText(`${heading}: [[${link}]]`);
+		const addSelection = (heading: string, link?: string, text?: string) => {
+			if (link) {
+				selections.push({ heading, link, type: 'note' });
+				const li = listEl.createEl('li');
+				li.setText(`${heading}: [[${link}]]`);
+			} else if (text) {
+				selections.push({ heading, text, type: 'text' });
+				const li = listEl.createEl('li');
+				li.setText(`${heading}: ${text}`);
+			}
 		};
 		
 		// Live note search
@@ -166,7 +172,25 @@ export class ContentToDProjectsHandler {
 				}
 			}
 		});
-		
+				// Text area for custom text input
+		const textAreaRow = contentEl.createDiv({ cls: 'form-row' });
+		textAreaRow.createEl('label', { text: 'Or add custom text:' });
+		const textArea = textAreaRow.createEl('textarea', { 
+			placeholder: 'Enter custom text to add under the selected heading...',
+			attr: { rows: '3', style: 'width: 100%; margin-top: 5px;' }
+		});
+
+		const addTextButton = textAreaRow.createEl('button', { 
+			text: 'Add Text',
+			attr: { style: 'margin-top: 5px;' }
+		});
+		addTextButton.addEventListener('click', () => {
+			const text = textArea.value.trim();
+			if (text) {
+				addSelection((headingSelect as HTMLSelectElement).value, undefined, text);
+				textArea.value = '';
+			}
+		});
 		// Buttons
 		const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
 		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
@@ -175,7 +199,7 @@ export class ContentToDProjectsHandler {
 		const insertButton = buttonContainer.createEl('button', { text: 'Insert into Content' });
 		insertButton.addEventListener('click', async () => {
 			if (selections.length === 0) { 
-				new Notice('Add at least one note first.'); 
+				new Notice('Add at least one note or text first.'); 
 				return; 
 			}
 			
@@ -269,11 +293,15 @@ export class ContentToDProjectsHandler {
 			
 			// Insert all selections
 			for (const selection of selections) {
-				ensureHeadingAndAppend(selection.heading, `- [[${selection.link}]]`);
+				if (selection.type === 'note' && selection.link) {
+					ensureHeadingAndAppend(selection.heading, `- [[${selection.link}]]`);
+				} else if (selection.type === 'text' && selection.text) {
+					ensureHeadingAndAppend(selection.heading, `- ${selection.text}`);
+				}
 			}
 			
 			await this.app.vault.modify(targetFile, lines.join('\n'));
-			new Notice(`Inserted ${selections.length} link(s) into ${targetPath}`);
+			new Notice(`Inserted ${selections.length} item(s) into ${targetPath}`);
 			closeModal();
 		});
 	}

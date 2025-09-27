@@ -28,7 +28,9 @@ export interface HeadingMeta {
 
 export interface Selection {
 	heading: string;
-	link: string;
+	link?: string;
+	text?: string;
+	type: 'note' | 'text';
 }
 
 export interface HeadingInfo {
