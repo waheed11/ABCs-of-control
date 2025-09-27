@@ -96,12 +96,43 @@ export class ABCsModal extends Modal {
             if (letter === 'E') {
                 const archiveItem = templateList.createEl('li');
                 const archiveButton = archiveItem.createEl('button', { 
-                    text: '📦 Archive Now',
+                    text: '📦 Archive #archived Notes',
                     cls: 'archive-now-button'
                 });
                 
                 archiveButton.addEventListener('click', async () => {
                     await this.archiveHandler.archiveTaggedNotes();
+                });
+            }
+            // Add Archive Settings button for E letter
+            if (letter === 'E') {
+                const settingsItem = templateList.createEl('li');
+                const settingsButton = settingsItem.createEl('button', { 
+                    text: '⚙️ Archive Settings',
+                    cls: 'archive-settings-button'
+                });
+                
+                settingsButton.addEventListener('click', async () => {
+                    // Import the modal dynamically
+                    const { ArchiveSettingsModal } = await import('./ArchiveSettingsModal');
+                    
+                    // Get current settings (you'll need to pass this from plugin)
+                    const currentSettings = this.plugin.settings.archiveSettings || {
+                        enabled: false,
+                        archiveAfterDays: 30,
+                        excludeFolders: ['Templates']
+                    };
+                    
+                    const modal = new ArchiveSettingsModal(
+                        this.app,
+                        currentSettings,
+                        (newSettings) => {
+                            // Save settings back to plugin
+                            this.plugin.settings.archiveSettings = newSettings;
+                            this.plugin.saveSettings();
+                        }
+                    );
+                    modal.open();
                 });
             }
         for (const template of templates) {

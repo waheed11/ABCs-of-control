@@ -1,5 +1,6 @@
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import { ensureFolderExists } from '../utils';
+import { ArchiveSettings } from '../types';
 
 export class ArchiveHandler {
 	private app: App;
@@ -131,5 +132,98 @@ export class ArchiveHandler {
 		}
 
 		return normalizePath(uniquePath);
+	}
+	/**
+ * Get files that should be archived based on age settings
+ */
+async getFilesToArchiveByAge(settings: ArchiveSettings): Promise<{ file: TFile; age: number }[]> {
+	if (!settings.enabled) {
+		return [];
+	}
+
+	const allFiles = this.app.vault.getMarkdownFiles();
+	const filesToArchive: { file: TFile; age: number }[] = [];
+	const now = Date.now();
+	const cutoffTime = now - (settings.archiveAfterDays * 24 * 60 * 60 * 1000);
+
+	for (const file of allFiles) {
+		// Skip files already in E/Archive
+		if (file.path.startsWith('E/Archive/')) {
+			continue;
+		}
+
+		// Skip excluded folders
+		if (this.isFileInExcludedFolder(file, settings.excludeFolders)) {
+			continue;
+		}
+
+		// Check file age
+		const creationTime = file.stat.ctime;
+		if (creationTime < cutoffTime) {
+			const ageInDays = Math.floor((now - creationTime) / (24 * 60 * 60 * 1000));
+			filesToArchive.push({ file, age: ageInDays });
+		}
+	}
+
+	return filesToArchive;
+}
+
+/**
+ * Archive files based on age settings
+ */
+async archiveFilesByAge(settings: ArchiveSettings): Promise<void> {
+	const filesToArchive = await this.getFilesToArchiveByAge(settings);
+	
+	if (filesToArchive.length === 0) {
+		new Notice('No files found that match the archive criteria');
+		return;
+	}
+
+	// Ensure E/Archive folder exists
+	await ensureFolderExists(this.app, 'E/Archive');
+
+	// Move files to E/Archive
+	let movedCount = 0;
+	const errors: string[] = [];
+
+	for (const { file } of filesToArchive) {
+		try {
+			const newPath = normalizePath(`E/Archive/${file.name}`);
+			
+			// Check if file already exists at destination
+			const existingFile = this.app.vault.getAbstractFileByPath(newPath);
+			if (existingFile) {
+				// Generate unique name
+				const uniquePath = await this.generateUniquePath(newPath);
+				await this.app.fileManager.renameFile(file, uniquePath);
+			} else {
+				await this.app.fileManager.renameFile(file, newPath);
+			}
+			
+			movedCount++;
+		} catch (error) {
+			errors.push(`${file.name}: ${(error as Error).message}`);
+		}
+	}
+
+	// Show results
+	if (movedCount > 0) {
+		new Notice(`✅ Archived ${movedCount} old file(s) to E/Archive`);
+	}
+
+	if (errors.length > 0) {
+		new Notice(`⚠️ ${errors.length} file(s) could not be archived. Check console for details.`);
+		console.error('Archive errors:', errors);
+	}
+}
+
+	/**
+	 * Check if file is in excluded folder
+	 */
+	private isFileInExcludedFolder(file: TFile, excludeFolders: string[]): boolean {
+		return excludeFolders.some(folder => 
+			file.path.toLowerCase().startsWith(folder.toLowerCase() + '/') ||
+			file.path.toLowerCase() === folder.toLowerCase()
+		);
 	}
 }

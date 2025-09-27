@@ -1,5 +1,13 @@
+export interface ArchiveSettings {
+	enabled: boolean;
+	archiveAfterDays: number;
+	excludeFolders: string[];
+}
+
 export interface MyPluginSettings {
 	templateFolderPath: string;
+	whenToUse: string;
+	archiveSettings: ArchiveSettings;
 	defaultHighlightColor: string;
 	language: string;
 }

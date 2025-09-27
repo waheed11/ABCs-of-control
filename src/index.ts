@@ -14,7 +14,7 @@ export * from './handlers/contentToDProjectsHandler';
 export * from './handlers/noteCreationHandler';
 export * from './handlers/tipsToEExamsHandler';
 export * from './handlers/archiveHandler';
-
+export * from './modals/ArchiveSettingsModal';
 // Modals
 export * from './modals/ABCsModal';
 export * from './modals/ColorPickerModal';
