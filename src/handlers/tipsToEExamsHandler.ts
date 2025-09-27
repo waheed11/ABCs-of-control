@@ -133,6 +133,22 @@ export class TipsToEExamsHandler {
 		// Selections list
 		const selectedList = examContainer.createDiv({ cls: 'selected-notes' });
 		selectedList.createEl('h3', { text: 'Tips to add' });
+		// Add checkbox for including archive folder notes
+		const archiveCheckboxContainer = contentEl.createDiv({ cls: 'archive-checkbox-container' });
+		const archiveCheckbox = archiveCheckboxContainer.createEl('input', {
+			type: 'checkbox',
+			attr: { id: 'include-archive-notes-tips' }  // Different ID from D/Projects
+		});
+		const archiveLabel = archiveCheckboxContainer.createEl('label', {
+			text: 'Include Archive Folder Notes',
+			attr: { for: 'include-archive-notes-tips' }
+		});
+
+		let includeArchiveNotes = false; // Default: exclude archive notes
+		archiveCheckbox.addEventListener('change', () => {
+			includeArchiveNotes = archiveCheckbox.checked;
+			// The search input will be created later, so we'll handle the refresh there
+		});
 		const listEl = selectedList.createEl('ul');
 		const selections: Selection[] = [];
 		
@@ -173,11 +189,13 @@ export class TipsToEExamsHandler {
 			});
 		};
 		
-		const updateSuggestions = (query: string) => {
+		const updateSuggestions = (searchTerm: string, notesToSearch?: TFile[]) => {
+			// Use provided notes or default to all vault notes
+			const notes = notesToSearch || this.app.vault.getMarkdownFiles();
 			suggList.empty();
-			if (!query) return;
-			const lower = query.toLowerCase();
-			lastMatches = allNotes.filter(f => 
+			if (!searchTerm) return;
+			const lower = searchTerm.toLowerCase();
+			lastMatches = notes.filter(f => 
 				f.basename.toLowerCase().includes(lower) || 
 				f.path.toLowerCase().includes(lower)
 			).slice(0, 50);
@@ -197,13 +215,26 @@ export class TipsToEExamsHandler {
 			updateActive();
 		};
 		
-		input.addEventListener('input', () => {
-			const value = input.value.trim();
-			if (value.length === 0) { 
+		input.addEventListener('input', (e) => {
+			const searchTerm = (e.target as HTMLInputElement).value.trim();
+			
+			if (searchTerm.length === 0) { 
 				suggList.empty(); 
 				return; 
 			}
-			updateSuggestions(value);
+			
+			// Get all notes and filter them based on archive inclusion
+			const allNotes = this.app.vault.getMarkdownFiles();
+			const filteredNotes = this.filterNotes(allNotes, includeArchiveNotes);
+			
+			// Apply search term filter to the already filtered notes
+			const searchResults = filteredNotes.filter(note => 
+				note.basename.toLowerCase().includes(searchTerm.toLowerCase()) ||
+				note.path.toLowerCase().includes(searchTerm.toLowerCase())
+			);
+			
+			// Update suggestions with the filtered results
+			updateSuggestions(searchTerm, searchResults); // Pass the filtered results
 		});
 		
 		input.addEventListener('keydown', (ev) => {
@@ -378,6 +409,15 @@ export class TipsToEExamsHandler {
 
 			// Show success feedback and keep modal open for more additions
 			new Notice(`✅ Tips added to ${examName}! You can now switch exams or add more tips.`);
+		});
+	}
+	private filterNotes(notes: TFile[], includeArchive: boolean = false): TFile[] {
+		return notes.filter(note => {
+			// Skip E/Archive folder unless explicitly included
+			if (!includeArchive && note.path.startsWith('E/Archive/')) {
+				return false;
+			}
+			return true;
 		});
 	}
 }
