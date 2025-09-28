@@ -1,8 +1,9 @@
+import { ArchiveHandler } from './archiveHandler';
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import * as path from 'path';
 import { HeadingMeta, Selection } from '../types';
 import { ensureFolderExists, parseSection, compareSection, detectArabicContent } from '../utils';
-
+import { MarkdownView } from 'obsidian';
 export class ContentToDProjectsHandler {
 	private app: App;
 
@@ -173,7 +174,38 @@ export class ContentToDProjectsHandler {
 		});
 		const suggBox = projectContainer.createDiv({ cls: 'wiki-suggest-box' });
 		const suggList = suggBox.createEl('ul', { cls: 'wiki-suggest-list' });
+		// Clean up overlays/focus to avoid UI freezing issues
+// Clean up overlays/focus to avoid UI freezing issues
+		const cleanupUI = () => {
+			try {
+			// Clear and hide suggestion list and container
+			if (suggList) {
+				suggList.empty();
+				(suggList as HTMLElement).style.display = 'none';
+				(suggList as HTMLElement).style.pointerEvents = 'none';
+			}
+			if (suggBox) {
+				(suggBox as HTMLElement).style.display = 'none';
+				(suggBox as HTMLElement).style.pointerEvents = 'none';
+				// Optional: remove from DOM entirely to prevent event trapping
+				if (suggBox.parentElement) suggBox.parentElement.removeChild(suggBox);
+			}
+			} catch (_) {}
 		
+			// Blur focused controls
+			const el = document.activeElement;
+			if (el instanceof HTMLElement) el.blur();
+		
+			// Nudge Obsidian to reflow
+			this.app.workspace.trigger('layout-change');
+		
+			// Return focus to editor (important!)
+			const md = this.app.workspace.getActiveViewOfType(MarkdownView);
+			md?.editor?.focus?.();
+			// Fallback: async focus after layout change
+			window.setTimeout(() => md?.editor?.focus?.(), 0);
+		};
+
 		let allNotes: TFile[] = [];
 		try { 
 			allNotes = this.app.vault.getMarkdownFiles(); 
@@ -288,23 +320,64 @@ export class ContentToDProjectsHandler {
 		});
 		// Buttons
 		const buttonContainer = projectContainer.createDiv({ cls: 'button-container' });
+
+		// 1) Move to E button (neutral, left)
+		const moveButton = buttonContainer.createEl('button', {
+		text: 'Move to E/Projects',
+		attr: { title: 'Move this project folder to E/Projects' }
+		});
+		moveButton.addEventListener('click', async () => {
+		const confirmed = confirm(`Move project "${projectName}" from D/Projects to E/Projects?`);
+		if (!confirmed) return;
+		try {
+			const archiveHandler = new ArchiveHandler(this.app);
+			const dest = await archiveHandler.moveProjectOrExam('project', projectName);
+
+			// Move corresponding D template to E/Templates and rename it so it no longer shows under D
+			const oldTemplatePath = normalizePath(`C/Templates/Content-to-D-Projects-${projectName}.md`);
+			const oldTemplate = this.app.vault.getAbstractFileByPath(oldTemplatePath) as TFile | null;
+			if (oldTemplate) {
+			await ensureFolderExists(this.app, 'E/Templates');
+			// Keep the same filename in E/Templates; resolve conflicts if needed
+			const fileName = oldTemplate.name; // e.g., Content-to-D-Projects-<name>.md
+			let newTemplatePath = normalizePath(`E/Templates/${fileName}`);
+			let counter = 1;
+			while (this.app.vault.getAbstractFileByPath(newTemplatePath)) {
+				const base = fileName.replace(/\.md$/, '');
+				newTemplatePath = normalizePath(`E/Templates/${base} (${counter}).md`);
+				counter++;
+			}
+			await this.app.fileManager.renameFile(oldTemplate, newTemplatePath);
+			}
+
+			new Notice(`✅ Moved to ${dest}`);
+			// Close to refresh UI/lists
+			closeModal();
+		} catch (err) {
+			console.error(err);
+			new Notice('❌ Failed to move project. See console for details.');
+		}
+		});
+
+		// 2) Close (neutral, middle)
 		const cancelButton = buttonContainer.createEl('button', { text: 'Close' });
-		cancelButton.addEventListener('click', () => closeModal());
-		
-		const insertButton = buttonContainer.createEl('button', { text: 'Insert into Content' });
+		cancelButton.addEventListener('click', () => { cleanupUI(); closeModal(); });
+
+		// 3) Insert (primary/violet, right)
+		const insertButton = buttonContainer.createEl('button', { text: 'Insert into Content', cls: 'mod-cta' });
 		insertButton.addEventListener('click', async () => {
-			if (selections.length === 0) { 
-				new Notice('Add at least one note or text first.'); 
-				return; 
-			}
-			
-			const targetPath = normalizePath(`D/Projects/${projectName}/Content.md`);
-			await ensureFolderExists(this.app, path.dirname(targetPath));
-			
-			let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
-			if (!targetFile) {
-				targetFile = await this.app.vault.create(targetPath, `# Content\n`);
-			}
+		if (selections.length === 0) { 
+			new Notice('Add at least one note or text first.'); 
+			return; 
+		}
+
+		const targetPath = normalizePath(`D/Projects/${projectName}/Content.md`);
+		await ensureFolderExists(this.app, path.dirname(targetPath));
+
+		let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
+		if (!targetFile) {
+			targetFile = await this.app.vault.create(targetPath, `# Content\n`);
+		}
 			
 			let content = await this.app.vault.read(targetFile);
 			const lines = content.split('\n');
@@ -407,11 +480,10 @@ export class ContentToDProjectsHandler {
 			textArea.value = '';
 
 			// Show success feedback and keep modal open for more additions
+			cleanupUI();
 			new Notice(`✅ Content added to ${projectName}! You can now switch projects or add more content.`);
 		});
-		}
-		
-		
+		}		
 		private filterNotes(notes: TFile[], includeArchive: boolean = false): TFile[] {
 			return notes.filter(note => {
 				// Skip archive folders unless explicitly included

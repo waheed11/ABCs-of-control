@@ -1,4 +1,4 @@
-import { App, TFile, Notice, normalizePath } from 'obsidian';
+import { App, TFile, TFolder, TAbstractFile, Notice, normalizePath } from 'obsidian';
 import { ensureFolderExists } from '../utils';
 import { ArchiveSettings } from '../types';
 
@@ -265,4 +265,45 @@ async archiveSpecificFiles(filesToArchive: { file: any; age: number }[]): Promis
 			file.path.toLowerCase() === folder.toLowerCase()
 		);
 	}
+	/** Move a folder (project or exam) to a new location, creating parents and resolving conflicts. */
+async moveFolder(fromPath: string, toPath: string): Promise<string> {
+	const src = this.app.vault.getAbstractFileByPath(normalizePath(fromPath));
+	if (!src || !(src instanceof TFolder)) {
+	  throw new Error(`Source folder not found or not a folder: ${fromPath}`);
+	}
+  
+	// Ensure destination parent exists
+	const destParent = toPath.split('/').slice(0, -1).join('/');
+	if (destParent) {
+	  await ensureFolderExists(this.app, destParent);
+	}
+  
+	// Resolve name conflicts
+	let finalDest = normalizePath(toPath);
+	if (this.app.vault.getAbstractFileByPath(finalDest)) {
+	  finalDest = await this.generateUniqueFolderPath(finalDest);
+	}
+  
+	await this.app.fileManager.renameFile(src as TAbstractFile, finalDest);
+	return finalDest;
+  }
+  
+  /** Move a D/{Projects|Exams}/[name] folder to E/{Projects|Exams}/[name] */
+  async moveProjectOrExam(kind: 'project' | 'exam', name: string): Promise<string> {
+	const kindFolder = kind === 'project' ? 'Projects' : 'Exams';
+	const fromPath = `D/${kindFolder}/${name}`;
+	const toPath = `E/${kindFolder}/${name}`;
+	return await this.moveFolder(fromPath, toPath);
+  }
+  
+  /** Generate a unique destination folder path if one already exists */
+  private async generateUniqueFolderPath(basePath: string): Promise<string> {
+	let counter = 1;
+	let candidate = basePath;
+	while (this.app.vault.getAbstractFileByPath(candidate)) {
+	  candidate = `${basePath} (${counter})`;
+	  counter++;
+	}
+	return normalizePath(candidate);
+  }
 }
