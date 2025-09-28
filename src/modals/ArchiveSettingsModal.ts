@@ -20,8 +20,8 @@ export class ArchiveSettingsModal extends Modal {
 
 		// Enable/Disable archive
 		new Setting(contentEl)
-        .setName('Enable archiving by age')
-        .setDesc('Enable the option to archive notes older than specified days (requires manual confirmation)')
+			.setName('Enable archiving by age')
+			.setDesc('Enable the option to archive notes older than specified days (requires manual confirmation)')
 			.addToggle(toggle => toggle
 				.setValue(this.settings.enabled)
 				.onChange(value => {
@@ -71,7 +71,7 @@ export class ArchiveSettingsModal extends Modal {
 
 	private async previewArchive() {
 		if (!this.settings.enabled) {
-			new Notice('Enable automatic archiving first');
+			new Notice('Enable archiving by age first');
 			return;
 		}
 
@@ -86,14 +86,16 @@ export class ArchiveSettingsModal extends Modal {
 			return;
 		}
 
-		// Show preview modal
+		// Show preview modal with updated callback
 		const previewModal = new ArchivePreviewModal(
 			this.app, 
 			filesToArchive, 
 			this.settings,
-			async () => {
-				// Execute archive
-				await archiveHandler.archiveFilesByAge(this.settings);
+			async (selectedFiles) => {  // Now receives only selected files
+				// Execute archive for selected files only
+				const { ArchiveHandler } = await import('../handlers/archiveHandler');
+				const archiveHandler = new ArchiveHandler(this.app);
+				await archiveHandler.archiveSpecificFiles(selectedFiles);  // New method needed
 				this.close();
 			}
 		);
@@ -115,13 +117,20 @@ export class ArchiveSettingsModal extends Modal {
 export class ArchivePreviewModal extends Modal {
 	private filesToArchive: { file: any; age: number }[];
 	private settings: ArchiveSettings;
-	private onConfirm: () => void;
+	private onConfirm: (selectedFiles: { file: any; age: number }[]) => void;
+	private selectedFiles: Set<string> = new Set(); // Track selected files
+	private confirmButton: HTMLButtonElement;
 
-	constructor(app: App, filesToArchive: { file: any; age: number }[], settings: ArchiveSettings, onConfirm: () => void) {
+	constructor(app: App, filesToArchive: { file: any; age: number }[], settings: ArchiveSettings, onConfirm: (selectedFiles: { file: any; age: number }[]) => void) {
 		super(app);
 		this.filesToArchive = filesToArchive;
 		this.settings = settings;
 		this.onConfirm = onConfirm;
+		
+		// Initialize all files as selected by default
+		this.filesToArchive.forEach(({ file }) => {
+			this.selectedFiles.add(file.path);
+		});
 	}
 
 	onOpen() {
@@ -132,24 +141,89 @@ export class ArchivePreviewModal extends Modal {
 		contentEl.createEl('h2', { text: 'Archive Preview' });
 		
 		contentEl.createEl('p', { 
-			text: `Found ${this.filesToArchive.length} file(s) older than ${this.settings.archiveAfterDays} days that will be archived to E/Archive:` 
+			text: `Found ${this.filesToArchive.length} file(s) older than ${this.settings.archiveAfterDays} days. Select which files to archive to E/Archive:` 
 		});
 
-		// File list
+		// Master "Check All" checkbox
+		const masterCheckboxContainer = contentEl.createDiv({ cls: 'master-checkbox-container' });
+		const masterCheckbox = masterCheckboxContainer.createEl('input', {
+			type: 'checkbox',
+			attr: { id: 'check-all-files' }
+		});
+		masterCheckbox.checked = true; // Checked by default
+		
+		const masterLabel = masterCheckboxContainer.createEl('label', {
+			text: `Check All (${this.filesToArchive.length} files)`,
+			attr: { for: 'check-all-files' }
+		});
+
+		// Master checkbox event listener
+		masterCheckbox.addEventListener('change', () => {
+			const isChecked = masterCheckbox.checked;
+			
+			// Update all individual checkboxes
+			const individualCheckboxes = contentEl.querySelectorAll('.file-checkbox') as NodeListOf<HTMLInputElement>;
+			individualCheckboxes.forEach(checkbox => {
+				checkbox.checked = isChecked;
+			});
+			
+			// Update selected files set
+			this.selectedFiles.clear();
+			if (isChecked) {
+				this.filesToArchive.forEach(({ file }) => {
+					this.selectedFiles.add(file.path);
+				});
+			}
+			
+			// Update confirm button text
+			this.updateConfirmButton();
+		});
+
+		// File list with individual checkboxes
 		const fileList = contentEl.createEl('div', { cls: 'archive-file-list' });
 		
 		this.filesToArchive.forEach(({ file, age }) => {
 			const fileItem = fileList.createEl('div', { cls: 'archive-file-item' });
-			fileItem.createEl('strong', { text: file.basename });
-			fileItem.createEl('br');
-			fileItem.createEl('span', { 
+			
+			// Individual checkbox for each file
+			const fileCheckbox = fileItem.createEl('input', {
+				type: 'checkbox',
+				cls: 'file-checkbox',
+				attr: { 'data-file-path': file.path }
+			});
+			fileCheckbox.checked = true; // Checked by default
+			
+			// File info container
+			const fileInfo = fileItem.createEl('div', { cls: 'file-info' });
+			fileInfo.createEl('strong', { text: file.basename });
+			fileInfo.createEl('br');
+			fileInfo.createEl('span', { 
 				text: `Path: ${file.path}`,
 				cls: 'file-path'
 			});
-			fileItem.createEl('br');
-			fileItem.createEl('span', { 
+			fileInfo.createEl('br');
+			fileInfo.createEl('span', { 
 				text: `Age: ${age} days`,
 				cls: 'file-age'
+			});
+			
+			// Individual checkbox event listener
+			fileCheckbox.addEventListener('change', () => {
+				if (fileCheckbox.checked) {
+					this.selectedFiles.add(file.path);
+				} else {
+					this.selectedFiles.delete(file.path);
+				}
+				
+				// Update master checkbox state
+				const allChecked = this.selectedFiles.size === this.filesToArchive.length;
+				const noneChecked = this.selectedFiles.size === 0;
+				
+				masterCheckbox.checked = allChecked;
+				masterCheckbox.indeterminate = !allChecked && !noneChecked;
+				
+				// Update confirm button text
+				this.updateConfirmButton();
 			});
 		});
 
@@ -159,13 +233,31 @@ export class ArchivePreviewModal extends Modal {
 		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
 		cancelButton.addEventListener('click', () => this.close());
 
-		const confirmButton = buttonContainer.createEl('button', { 
-			text: `Archive ${this.filesToArchive.length} file(s)`,
+		this.confirmButton = buttonContainer.createEl('button', { 
+			text: `Archive ${this.selectedFiles.size} file(s)`,
 			cls: 'mod-cta'
 		});
-		confirmButton.addEventListener('click', () => {
-			this.onConfirm();
+		
+		this.confirmButton.addEventListener('click', () => {
+			// Get only the selected files
+			const selectedFilesToArchive = this.filesToArchive.filter(({ file }) => 
+				this.selectedFiles.has(file.path)
+			);
+			
+			if (selectedFilesToArchive.length === 0) {
+				new Notice('Please select at least one file to archive');
+				return;
+			}
+			
+			this.onConfirm(selectedFilesToArchive);
 			this.close();
 		});
+	}
+	
+	private updateConfirmButton() {
+		if (this.confirmButton) {
+			this.confirmButton.textContent = `Archive ${this.selectedFiles.size} file(s)`;
+			this.confirmButton.disabled = this.selectedFiles.size === 0;
+		}
 	}
 }

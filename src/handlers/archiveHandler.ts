@@ -216,6 +216,45 @@ async archiveFilesByAge(settings: ArchiveSettings): Promise<void> {
 		console.error('Archive errors:', errors);
 	}
 }
+async archiveSpecificFiles(filesToArchive: { file: any; age: number }[]): Promise<void> {
+	let movedCount = 0;
+	const errors: string[] = [];
+
+	for (const { file } of filesToArchive) {
+		try {
+			const archivePath = `E/Archive/${file.name}`;
+			
+			// Ensure E/Archive folder exists
+			await ensureFolderExists(this.app, 'E/Archive');
+			
+			// Handle naming conflicts
+			let finalPath = archivePath;
+			let counter = 1;
+			while (this.app.vault.getAbstractFileByPath(finalPath)) {
+				const nameWithoutExt = file.basename;
+				const ext = file.extension;
+				finalPath = `E/Archive/${nameWithoutExt} (${counter}).${ext}`;
+				counter++;
+			}
+			
+			// Move the file
+			await this.app.vault.rename(file, finalPath);
+			movedCount++;
+		} catch (error) {
+			errors.push(`Failed to archive ${file.name}: ${error.message}`);
+		}
+	}
+
+	// Show results
+	if (movedCount > 0) {
+		new Notice(`✅ Successfully archived ${movedCount} file(s) to E/Archive`);
+	}
+	
+	if (errors.length > 0) {
+		new Notice(`❌ ${errors.length} file(s) failed to archive. Check console for details.`);
+		console.error('Archive errors:', errors);
+	}
+}
 
 	/**
 	 * Check if file is in excluded folder

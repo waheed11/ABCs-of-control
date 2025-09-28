@@ -17,7 +17,8 @@ export class ABCsModal extends Modal {
     private tipsToEExamsHandler: TipsToEExamsHandler;
     private archiveHandler: ArchiveHandler;
 	private noteCreationHandler: NoteCreationHandler;
-	
+	private resizeHandler?: () => void;
+
 	constructor(app: App, plugin: any) {
 		super(app);
 		this.plugin = plugin;
@@ -52,11 +53,20 @@ export class ABCsModal extends Modal {
         const letterC = this.createLetterCell('C', 'center', middleRow);
         const letterD = this.createLetterCell('D', 'left', bottomRow);
         const letterE = this.createLetterCell('E', 'right', bottomRow);
-        
+        // Draw arrows and keep them synced on resize
+        this.drawArrows(abcContainer, { A: letterA, B: letterB, C: letterC, D: letterD, E: letterE });
+        this.resizeHandler = () => this.drawArrows(abcContainer, { A: letterA, B: letterB, C: letterC, D: letterD, E: letterE });
+        window.addEventListener('resize', this.resizeHandler);
         // Add container for template list
         contentEl.createDiv({ cls: 'template-list-container' });
     }
-    
+    onClose() {
+        if (this.resizeHandler) {
+          window.removeEventListener('resize', this.resizeHandler);
+          this.resizeHandler = undefined;
+        }
+      }
+
     createLetterCell(letter: string, position: string, container: HTMLElement): HTMLElement {
         const letterCell = container.createDiv({ cls: `letter-cell ${position}` });
         
@@ -338,4 +348,94 @@ async handleInvokeTemplate(template: TFile, templateContent: string) {
         this.close();
     }
 }
+// Draw requested arrows using an SVG overlay
+private drawArrows(abcContainer: HTMLElement, cells: Record<string, HTMLElement>) {
+    const svgns = 'http://www.w3.org/2000/svg';
+  
+    // Remove any existing SVG overlay
+    const existing = abcContainer.querySelector('.abc-svg');
+    if (existing) existing.remove();
+  
+    const width = abcContainer.clientWidth;
+    const height = abcContainer.clientHeight;
+    const svg = document.createElementNS(svgns, 'svg');
+    svg.setAttribute('class', 'abc-svg');
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  
+        // Arrowhead marker
+    const defs = document.createElementNS(svgns, 'defs');
+    const marker = document.createElementNS(svgns, 'marker');
+    marker.setAttribute('id', 'abc-arrowhead');
+    // Make size explicit and independent of stroke width
+    marker.setAttribute('markerUnits', 'userSpaceOnUse');
+    marker.setAttribute('viewBox', '0 0 12 8');
+    marker.setAttribute('markerWidth', '12');
+    marker.setAttribute('markerHeight', '8');
+    marker.setAttribute('refX', '12');  // tip of the arrow aligns with line end
+    marker.setAttribute('refY', '4');
+    marker.setAttribute('orient', 'auto');
+
+    const tip = document.createElementNS(svgns, 'path');
+    tip.setAttribute('d', 'M0,0 L12,4 L0,8 Z');
+    tip.setAttribute('fill', '#9e9e9e');
+    //tip.setAttribute('fill-opacity', '0.45'); // head a bit stronger than the line
+    tip.setAttribute('stroke', 'none');
+
+    marker.appendChild(tip);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+  
+    const containerRect = abcContainer.getBoundingClientRect();
+    const centerOf = (cell: HTMLElement) => {
+      const bubble = cell.querySelector('.letter-bubble') as HTMLElement | null;
+      const r = (bubble ?? cell).getBoundingClientRect();
+      return { x: r.left - containerRect.left + r.width / 2, y: r.top - containerRect.top + r.height / 2 };
+    };
+    // Draw edge-to-edge so arrowheads are not hidden under the circles
+const BUBBLE_RADIUS = 40; // .letter-bubble is 80px, so radius is 40
+const PADDING = 6;        // small gap from the edge for nicer look
+
+const edgePoints = (from: {x:number;y:number}, to: {x:number;y:number}) => {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.max(Math.hypot(dx, dy), 1e-6);
+  const ux = dx / len;
+  const uy = dy / len;
+  // start a bit outside the source bubble, end a bit before the target bubble edge
+  const x1 = from.x + ux * (BUBBLE_RADIUS + PADDING);
+  const y1 = from.y + uy * (BUBBLE_RADIUS + PADDING);
+  const x2 = to.x - ux * (BUBBLE_RADIUS + PADDING);
+  const y2 = to.y - uy * (BUBBLE_RADIUS + PADDING);
+  return { x1, y1, x2, y2 };
+};
+    const centers: Record<string, { x: number; y: number }> = {
+      A: centerOf(cells.A),
+      B: centerOf(cells.B),
+      C: centerOf(cells.C),
+      D: centerOf(cells.D),
+      E: centerOf(cells.E),
+    };
+  
+    // Connections: C→A, C→B, B→A, C→D, C→E, D→E
+    const edges: Array<[keyof typeof centers, keyof typeof centers]> = [
+      ['C','A'], ['C','B'], ['B','A'], ['C','D'], ['C','E'], ['D','E']
+    ];
+  
+    for (const [from, to] of edges) {
+      const line = document.createElementNS(svgns, 'line');
+      line.setAttribute('class', 'abc-arrow');
+      const pts = edgePoints(centers[from], centers[to]);
+      line.setAttribute('x1', String(pts.x1));
+      line.setAttribute('y1', String(pts.y1));
+      line.setAttribute('x2', String(pts.x2));
+      line.setAttribute('y2', String(pts.y2));
+      line.setAttribute('stroke', '#9e9e9e');
+      line.setAttribute('stroke-width', '3');
+      line.setAttribute('marker-end', 'url(#abc-arrowhead)');
+      line.setAttribute('opacity', '0.25');
+      svg.appendChild(line);
+    }
+  
+    abcContainer.appendChild(svg);
+  }
 }
