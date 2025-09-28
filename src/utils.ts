@@ -1,8 +1,55 @@
-import { App, TFile, TFolder, MarkdownView, MarkdownFileInfo, normalizePath } from 'obsidian';
+import { App, Modal, TFile, TFolder, MarkdownView, MarkdownFileInfo, normalizePath } from 'obsidian';
 import * as path from 'path';
 import { HeadingMeta } from './types';
 import { ALPHABET } from './constants';
 
+export async function confirmModal(
+  app: App,
+  title: string,
+  message: string,
+  okText = 'OK',
+  cancelText = 'Cancel'
+): Promise<boolean> {
+  return new Promise(resolve => {
+    const modal = new Modal(app);
+    const { contentEl } = modal;
+    contentEl.empty();
+
+    let decided = false; // guard to avoid double resolution
+
+    contentEl.createEl('h2', { text: title });
+    contentEl.createEl('p', { text: message });
+
+    const btns = contentEl.createDiv({ cls: 'button-container' });
+    const cancel = btns.createEl('button', { text: cancelText });
+    const ok = btns.createEl('button', { text: okText, cls: 'mod-cta' });
+
+    cancel.addEventListener('click', () => {
+      if (!decided) {
+        decided = true;
+        resolve(false);
+      }
+      modal.close();
+    });
+
+    ok.addEventListener('click', () => {
+      if (!decided) {
+        decided = true;
+        resolve(true);
+      }
+      modal.close();
+    });
+
+    const origOnClose = modal.onClose.bind(modal);
+    modal.onClose = () => {
+      // Only resolve false if neither button decided the result
+      if (!decided) resolve(false);
+      origOnClose();
+    };
+
+    modal.open();
+  });
+}
 /**
  * Detect if content contains Arabic text
  */
