@@ -2,8 +2,8 @@ import { ArchiveHandler } from './archiveHandler';
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import * as path from 'path';
 import { HeadingMeta, Selection } from '../types';
-import { ensureFolderExists, parseSection, compareSection, detectArabicContent } from '../utils';
-import { MarkdownView } from 'obsidian';
+import { ensureFolderExists, parseSection, compareSection, detectArabicContent, confirmModal } from '../utils';
+
 export class ContentToDProjectsHandler {
 	private app: App;
 
@@ -174,37 +174,6 @@ export class ContentToDProjectsHandler {
 		});
 		const suggBox = projectContainer.createDiv({ cls: 'wiki-suggest-box' });
 		const suggList = suggBox.createEl('ul', { cls: 'wiki-suggest-list' });
-		// Clean up overlays/focus to avoid UI freezing issues
-// Clean up overlays/focus to avoid UI freezing issues
-		const cleanupUI = () => {
-			try {
-			// Clear and hide suggestion list and container
-			if (suggList) {
-				suggList.empty();
-				(suggList as HTMLElement).style.display = 'none';
-				(suggList as HTMLElement).style.pointerEvents = 'none';
-			}
-			if (suggBox) {
-				(suggBox as HTMLElement).style.display = 'none';
-				(suggBox as HTMLElement).style.pointerEvents = 'none';
-				// Optional: remove from DOM entirely to prevent event trapping
-				if (suggBox.parentElement) suggBox.parentElement.removeChild(suggBox);
-			}
-			} catch (_) {}
-		
-			// Blur focused controls
-			const el = document.activeElement;
-			if (el instanceof HTMLElement) el.blur();
-		
-			// Nudge Obsidian to reflow
-			this.app.workspace.trigger('layout-change');
-		
-			// Return focus to editor (important!)
-			const md = this.app.workspace.getActiveViewOfType(MarkdownView);
-			md?.editor?.focus?.();
-			// Fallback: async focus after layout change
-			window.setTimeout(() => md?.editor?.focus?.(), 0);
-		};
 
 		let allNotes: TFile[] = [];
 		try { 
@@ -327,8 +296,16 @@ export class ContentToDProjectsHandler {
 		attr: { title: 'Move this project folder to E/Projects' }
 		});
 		moveButton.addEventListener('click', async () => {
-		const confirmed = confirm(`Move project "${projectName}" from D/Projects to E/Projects?`);
-		if (!confirmed) return;
+			const confirmed = await confirmModal(
+				this.app,
+				'Move to E/Projects',
+				`Move project "${projectName}" from D/Projects to E/Projects?`,
+				'Move',
+				'Cancel'
+			  );
+			  if (!confirmed) return;
+
+
 		try {
 			const archiveHandler = new ArchiveHandler(this.app);
 			const dest = await archiveHandler.moveProjectOrExam('project', projectName);
@@ -361,7 +338,7 @@ export class ContentToDProjectsHandler {
 
 		// 2) Close (neutral, middle)
 		const cancelButton = buttonContainer.createEl('button', { text: 'Close' });
-		cancelButton.addEventListener('click', () => { cleanupUI(); closeModal(); });
+		cancelButton.addEventListener('click', () => closeModal());
 
 		// 3) Insert (primary/violet, right)
 		const insertButton = buttonContainer.createEl('button', { text: 'Insert into Content', cls: 'mod-cta' });
@@ -480,7 +457,7 @@ export class ContentToDProjectsHandler {
 			textArea.value = '';
 
 			// Show success feedback and keep modal open for more additions
-			cleanupUI();
+
 			new Notice(`✅ Content added to ${projectName}! You can now switch projects or add more content.`);
 		});
 		}		
