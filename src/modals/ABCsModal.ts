@@ -77,8 +77,9 @@ export class ABCsModal extends Modal {
         // Check if templates exist for this letter
         const hasTemplates = (this.templateMap.get(letter) ?? []).length > 0;
         
-        // Make the bubble clickable if templates exist
-        if (hasTemplates) {
+        // Make E clickable even if it has no templates (to show Archive actions)
+        // Others remain clickable only if templates exist
+        if (hasTemplates || letter === 'E') {
             letterBubble.addClass('has-templates');
             letterBubble.addEventListener('click', () => {
                 this.showTemplatesForLetter(letter);
@@ -96,55 +97,52 @@ export class ABCsModal extends Modal {
         templateListContainer.empty();
         
         const templates = this.templateMap.get(letter) || [];
+
+        const templateList = templateListContainer.createEl('ul', { cls: 'template-list' });
+
+        // E actions should appear regardless of templates
+        if (letter === 'E') {
+            const archiveItem = templateList.createEl('li');
+            const archiveButton = archiveItem.createEl('button', { 
+                text: '📦 Archive #archived Notes',
+                cls: 'archive-now-button'
+            });
+            archiveButton.addEventListener('click', async () => {
+                await this.archiveHandler.archiveTaggedNotes();
+            });
+
+            const settingsItem = templateList.createEl('li');
+            const settingsButton = settingsItem.createEl('button', { 
+                text: '⚙️ Archive Settings',
+                cls: 'archive-settings-button'
+            });
+            settingsButton.addEventListener('click', async () => {
+                const { ArchiveSettingsModal } = await import('./ArchiveSettingsModal');
+                const currentSettings = this.plugin.settings.archiveSettings || {
+                    enabled: false,
+                    archiveAfterDays: 30,
+                    excludeFolders: ['Templates']
+                };
+                const modal = new ArchiveSettingsModal(
+                    this.app,
+                    currentSettings,
+                    (newSettings) => {
+                        this.plugin.settings.archiveSettings = newSettings;
+                        this.plugin.saveSettings();
+                    }
+                );
+                modal.open();
+            });
+        }
+
+        // If no templates: for E, just return silently (actions above already shown). For others, show a message.
         if (templates.length === 0) {
-            templateListContainer.createEl('p', { text: `No templates found for letter ${letter}` });
+            if (letter !== 'E') {
+            const msgItem = templateList.createEl('li');
+            msgItem.createEl('span', { text: `No templates found for letter ${letter}` });
+            }
             return;
         }
-        
-        const templateList = templateListContainer.createEl('ul', { cls: 'template-list' });
-        // Add Archive Now button for E letter
-            if (letter === 'E') {
-                const archiveItem = templateList.createEl('li');
-                const archiveButton = archiveItem.createEl('button', { 
-                    text: '📦 Archive #archived Notes',
-                    cls: 'archive-now-button'
-                });
-                
-                archiveButton.addEventListener('click', async () => {
-                    await this.archiveHandler.archiveTaggedNotes();
-                });
-            }
-            // Add Archive Settings button for E letter
-            if (letter === 'E') {
-                const settingsItem = templateList.createEl('li');
-                const settingsButton = settingsItem.createEl('button', { 
-                    text: '⚙️ Archive Settings',
-                    cls: 'archive-settings-button'
-                });
-                
-                settingsButton.addEventListener('click', async () => {
-                    // Import the modal dynamically
-                    const { ArchiveSettingsModal } = await import('./ArchiveSettingsModal');
-                    
-                    // Get current settings (you'll need to pass this from plugin)
-                    const currentSettings = this.plugin.settings.archiveSettings || {
-                        enabled: false,
-                        archiveAfterDays: 30,
-                        excludeFolders: ['Templates']
-                    };
-                    
-                    const modal = new ArchiveSettingsModal(
-                        this.app,
-                        currentSettings,
-                        (newSettings) => {
-                            // Save settings back to plugin
-                            this.plugin.settings.archiveSettings = newSettings;
-                            this.plugin.saveSettings();
-                        }
-                    );
-                    modal.open();
-                });
-            }
         for (const template of templates) {
             const listItem = templateList.createEl('li');
             const templateButton = listItem.createEl('button', { text: template.basename });
@@ -157,8 +155,8 @@ export class ABCsModal extends Modal {
                     await this.handleContentToDProjects(template);
                     return;
                 }
-                // Handle special Tips-to-E-Exams templates
-                if (template.basename.startsWith('Tips-to-E-Exams-')) {
+                // Handle special Tips-to-D-Exams templates (exams now under D)
+                if (template.basename.startsWith('Tips-to-D-Exams-')) {
                     await this.handleTipsToEExams(template);
                     return;
                 }
@@ -211,8 +209,8 @@ export class ABCsModal extends Modal {
     async handleTipsToEExams(template: TFile) {
         // Collect all Tips-to-E-Exams templates
         const allTemplates = this.app.vault.getMarkdownFiles();
-        const examTemplates = allTemplates.filter(file => 
-            file.basename.startsWith('Tips-to-E-Exams-')
+        const examTemplates = allTemplates.filter(file =>
+            file.basename.startsWith('Tips-to-D-Exams-')
         );
         
         await this.tipsToEExamsHandler.handleTipsToEExams(

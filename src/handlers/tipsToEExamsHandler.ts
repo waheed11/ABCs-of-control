@@ -1,7 +1,8 @@
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import * as path from 'path';
 import { HeadingMeta, Selection } from '../types';
-import { ensureFolderExists, parseSection, compareSection, detectArabicContent } from '../utils';
+import { ensureFolderExists, confirmModal, parseSection, compareSection, detectArabicContent } from '../utils';
+import { ArchiveHandler } from './archiveHandler';
 
 export class TipsToEExamsHandler {
 	private app: App;
@@ -18,7 +19,7 @@ export class TipsToEExamsHandler {
 		contentEl.empty();
 
 		// Extract exam names from all templates
-		const prefix = 'Tips-to-E-Exams-';
+		const prefix = 'Tips-to-D-Exams-';
 		const exams: { name: string; template: TFile }[] = templates.map(template => ({
 			name: template.basename.startsWith(prefix) 
 				? template.basename.substring(prefix.length)
@@ -42,7 +43,7 @@ export class TipsToEExamsHandler {
 		}
 		
 		// Create exam selection UI
-		contentEl.createEl('h2', { text: 'Add tips to E/Exams' });
+		contentEl.createEl('h2', { text: 'Add tips to D/Exams' });
 		
 		const examRow = contentEl.createDiv({ cls: 'form-row' });
 		examRow.createEl('label', { text: 'Exam:' });
@@ -287,19 +288,65 @@ export class TipsToEExamsHandler {
 			}
 		});
 		
-		// Buttons
-		const buttonContainer = examContainer.createDiv({ cls: 'button-container' });
-		const closeButton = buttonContainer.createEl('button', { text: 'Close' });
-		closeButton.addEventListener('click', () => closeModal());
-		
-		const insertButton = buttonContainer.createEl('button', { text: 'Insert into Tips' });
+			// Buttons
+			const buttonContainer = examContainer.createDiv({ cls: 'button-container' });
+
+			// 1) Move to E button (neutral, left)
+			const moveButton = buttonContainer.createEl('button', {
+			text: 'Move to E/Exams',
+			attr: { title: 'Move this exam folder to E/Exams' }
+			});
+			moveButton.addEventListener('click', async () => {
+			const confirmed = await confirmModal(
+				this.app,
+				'Move to E/Exams',
+				`Move exam "${examName}" from D/Exams to E/Exams?`,
+				'Move',
+				'Cancel'
+			);
+			if (!confirmed) return;
+
+			try {
+				const archiveHandler = new ArchiveHandler(this.app);
+				const dest = await archiveHandler.moveProjectOrExam('exam', examName);
+
+				// Move corresponding D exam template to E/Templates, keeping filename
+				const oldTemplatePath = normalizePath(`C/Templates/Tips-to-D-Exams-${examName}.md`);
+				const oldTemplate = this.app.vault.getAbstractFileByPath(oldTemplatePath) as TFile | null;
+				if (oldTemplate) {
+				await ensureFolderExists(this.app, 'E/Templates');
+				const fileName = oldTemplate.name; // e.g., Tips-to-D-Exams-<name>.md
+				let newTemplatePath = normalizePath(`E/Templates/${fileName}`);
+				let counter = 1;
+				while (this.app.vault.getAbstractFileByPath(newTemplatePath)) {
+					const base = fileName.replace(/\\.md$/, '');
+					newTemplatePath = normalizePath(`E/Templates/${base} (${counter}).md`);
+					counter++;
+				}
+				await this.app.fileManager.renameFile(oldTemplate, newTemplatePath);
+				}
+
+				new Notice(`✅ Moved to ${dest}`);
+				closeModal();
+			} catch (err) {
+				console.error(err);
+				new Notice('❌ Failed to move exam. See console for details.');
+			}
+			});
+
+			// 2) Close (neutral, middle)
+			const closeButton = buttonContainer.createEl('button', { text: 'Close' });
+			closeButton.addEventListener('click', () => closeModal());
+
+			// 3) Insert (primary, right)
+			const insertButton = buttonContainer.createEl('button', { text: 'Insert into Tips', cls: 'mod-cta' });
 		insertButton.addEventListener('click', async () => {
 			if (selections.length === 0) { 
 				new Notice('Add at least one note or text first.'); 
 				return; 
 			}
 			
-			const targetPath = normalizePath(`E/Exams/${examName}/Tips.md`);
+			const targetPath = normalizePath(`D/Exams/${examName}/Tips.md`);
 			await ensureFolderExists(this.app, path.dirname(targetPath));
 			
 			let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
