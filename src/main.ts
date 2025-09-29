@@ -1,5 +1,5 @@
 import { App, Editor, MarkdownView, Plugin, MarkdownFileInfo } from 'obsidian';
-import { MyPluginSettings } from './types';
+import { MyPluginSettings, SettingsRoot } from './types';
 import { DEFAULT_SETTINGS } from './constants';
 import { ABCsModal } from './modals/ABCsModal';
 import { ABCsSettingTab } from './settings';
@@ -13,6 +13,8 @@ export default class ABCsOfControlPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		this.ensurePhase0Defaults();
+		await this.saveSettings();
 		
 		// Initialize handlers
 		this.highlightHandler = new HighlightHandler(this.app, this.settings);
@@ -80,4 +82,75 @@ export default class ABCsOfControlPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
-}
+
+	private ensurePhase0Defaults() {
+		if (this.settings.abcsPhase0) return;
+
+		const defaultProfileId = 'default';
+
+		const defaultSettings: SettingsRoot = {
+			activeProfile: defaultProfileId,
+			version: 1,
+			safety: { dryRun: true, confirmMoves: true },
+			profiles: [
+				{
+					id: defaultProfileId,
+					label: 'Default',
+					roles: {
+						A: ['A/'],
+						B: ['B/'],
+						C: ['C/'],
+						D: ['D/Projects', 'D/Exams'],
+						E: ['E/Archive'],
+					},
+					classification: {
+						useFrontmatter: true,
+						useTags: true,
+						frontmatterKey: 'abcs.letter',
+						tagMap: {
+							'#A': 'A',
+							'#B': 'B',
+							'#C': 'C',
+							'#D': 'D',
+							'#E': 'E',
+						},
+					},
+					defaults: {
+						search: {
+							includeArchive: false,
+						},
+						insertion: {
+							ordering: 'numeric',
+							compare: 'numericFirst',
+							normalizeDigits: true,
+							stopAtAnyHeading: true,
+						},
+					},
+					pipelines: [
+						{
+							id: 'content-to-d-projects',
+							label: 'Content to D/Projects',
+							templatePrefix: 'Content-to-D-Projects-',
+							sources: { roles: ['A', 'B'] },
+							targetPath: 'D/Projects/{project}/Content.md',
+							search: { includeArchive: false },
+							ui: { keepModalOpen: true, resetAfterInsert: true },
+						},
+						{
+							id: 'tips-to-d-exams',
+							label: 'Tips to D/Exams',
+							templatePrefix: 'Tips-to-D-Exams-',
+							sources: { roles: ['A', 'B'] },
+							targetPath: 'D/Exams/{exam}/Tips.md',
+							search: { includeArchive: false },
+							ui: { keepModalOpen: true, resetAfterInsert: true },
+						},
+					],
+				},
+			],
+			i18n: { language: (this.settings?.language as string) || undefined, rtl: false },
+		};
+
+		this.settings.abcsPhase0 = defaultSettings;
+		}
+	}

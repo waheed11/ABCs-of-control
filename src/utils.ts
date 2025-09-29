@@ -164,9 +164,9 @@ export async function getTemplateFiles(app: App, templateFolderPath: string): Pr
 				templateMap.set('D', letterFiles);
 				continue;
 			}
-			// Check if the file name starts with our special Tips-to-E-Exams- prefix
+			// Check if the file name starts with our special Tips-to-D-Exams- prefix
 			if (fileName.startsWith('Tips-to-D-Exams-')) {
-				// Force-list under E
+				// Force-list under D
 				const letterFiles = templateMap.get('D') || [];
 				letterFiles.push(file);
 				templateMap.set('D', letterFiles);
@@ -255,3 +255,22 @@ export function extractJavaScriptCode(templateContent: string): string {
 	
 	return '';
 }
+
+// Build a path from a pattern like "D/Projects/{project}/Content.md"
+export function buildTargetPath(pattern: string, vars: Record<string, string>): string {
+	return Object.keys(vars).reduce((acc, key) => {
+	  const re = new RegExp(`\\{${key}\\}`, 'g');
+	  return acc.replace(re, vars[key]);
+	}, pattern);
+  }
+  
+  // Read pipeline target pattern from Phase 0 and build a concrete path
+  export function getPipelineTargetPath(app: App, pipelineId: string, vars: Record<string,string>): string | null {
+	const p = (app as any).plugins?.plugins?.['ABCs-of-control'];
+	const s = p?.settings?.abcsPhase0;
+	if (!s) return null;
+	const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+	const pipe = (prof?.pipelines || []).find((x: any) => x.id === pipelineId);
+	if (!pipe?.targetPath) return null;
+	return buildTargetPath(pipe.targetPath, vars);
+  }

@@ -2,7 +2,7 @@ import { ArchiveHandler } from './archiveHandler';
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import * as path from 'path';
 import { HeadingMeta, Selection } from '../types';
-import { ensureFolderExists, parseSection, compareSection, detectArabicContent, confirmModal } from '../utils';
+import { ensureFolderExists, parseSection, compareSection, detectArabicContent, confirmModal, getPipelineTargetPath  } from '../utils';
 
 export class ContentToDProjectsHandler {
 	private app: App;
@@ -15,7 +15,7 @@ export class ContentToDProjectsHandler {
 	 * Handle Content-to-D-Projects template processing with proper numeric ordering
 	 * Based on the working implementation from memories
 	 */
-	async handleContentToDProjects(templates: TFile[], initialTemplate: TFile, contentEl: HTMLElement, closeModal: () => void) {
+	async handleContentToDProjects(templates: TFile[], initialTemplate: TFile, contentEl: HTMLElement, closeModal: () => void, pipelineId: string = 'content-to-d-projects') {
 		contentEl.empty();
 
 		// Extract project names from all templates
@@ -71,7 +71,7 @@ export class ContentToDProjectsHandler {
 				existingContent.remove();
 			}
 			
-			await this.buildProjectUI(templateContent, projectName, contentEl, closeModal);
+			await this.buildProjectUI(templateContent, projectName, contentEl, closeModal, pipelineId);
 		};
 		
 		// Project selection change handler
@@ -86,7 +86,13 @@ export class ContentToDProjectsHandler {
     /**
      * Build the project-specific UI (headings, selections, etc.)
      */
-	private async buildProjectUI(templateContent: string, projectName: string, contentEl: HTMLElement, closeModal: () => void) {
+	private async buildProjectUI(
+		templateContent: string,
+		projectName: string,
+		contentEl: HTMLElement,
+		closeModal: () => void,
+		pipelineId: string
+	  ) {
 		const projectContainer = contentEl.createDiv({ cls: 'project-content' });
 		
 		// Parse headings with level and numeric section (e.g., 1.2.3)
@@ -146,10 +152,37 @@ export class ContentToDProjectsHandler {
 			attr: { for: 'include-archive-notes' }
 		});
 
-		let includeArchiveNotes = false; // Default: exclude archive notes
-		archiveCheckbox.addEventListener('change', () => {
-			includeArchiveNotes = archiveCheckbox.checked;
-			// The search input will be created later, so we'll handle the refresh there
+		//let includeArchiveNotes = false; // Default: exclude archive notes
+		
+		// Helper to read/write includeArchive for this pipeline
+		const getPlugin = () => (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+		const getIncludeArchiveDefault = (): boolean => {
+		const p = getPlugin();
+		const s = p?.settings?.abcsPhase0;
+		if (!s) return false; // fallback default
+		const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+		const pipe = prof?.pipelines?.find((x: any) => x.id === 'content-to-d-projects');
+		return Boolean(pipe?.search?.includeArchive);
+		};
+		const setIncludeArchivePersist = async (value: boolean) => {
+		const p = getPlugin();
+		if (!p?.settings?.abcsPhase0) return;
+		const s = p.settings.abcsPhase0;
+		const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+		const pipe = prof?.pipelines?.find((x: any) => x.id === 'content-to-d-projects');
+		if (!pipe) return;
+		pipe.search = pipe.search || { includeArchive: false };
+		pipe.search.includeArchive = value;
+		await p.saveSettings?.();
+		};
+		
+		let includeArchiveNotes = getIncludeArchiveDefault(); // default from settings
+		archiveCheckbox.checked = includeArchiveNotes;
+
+		archiveCheckbox.addEventListener('change', async () => {
+		includeArchiveNotes = archiveCheckbox.checked;
+		await setIncludeArchivePersist(includeArchiveNotes);
+		// search refresh happens in input handler below as before
 		});
 		const listEl = selectedList.createEl('ul');
 		const selections: Selection[] = [];
@@ -348,7 +381,9 @@ export class ContentToDProjectsHandler {
 			return; 
 		}
 
-		const targetPath = normalizePath(`D/Projects/${projectName}/Content.md`);
+		const defaultPattern = `D/Projects/{project}/Content.md`;
+		const resolved = getPipelineTargetPath(this.app, pipelineId, { project: projectName });
+		const targetPath = normalizePath((resolved ?? defaultPattern).replace('{project}', projectName));
 		await ensureFolderExists(this.app, path.dirname(targetPath));
 
 		let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
@@ -465,7 +500,7 @@ export class ContentToDProjectsHandler {
 			return notes.filter(note => {
 				// Skip archive folders unless explicitly included
 				if (!includeArchive) {
-					if (note.path.startsWith('E/Archive/') || note.path.startsWith('D/Archive/')) {
+					if (note.path.startsWith('E/')) {
 						return false;
 					}
 				}

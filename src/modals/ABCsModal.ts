@@ -88,7 +88,30 @@ export class ABCsModal extends Modal {
         
         return letterCell;
     }
+    // Resolve active Phase 0 pipeline by matching templatePrefix against a clicked template's basename
+    private resolvePipelineIdForTemplate(template: TFile): string | null {
+        const p = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+        const s = p?.settings?.abcsPhase0;
+        if (!s) return null;
+        const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+        const basename = template.basename;
     
+        for (const pipe of prof.pipelines || []) {
+        if (pipe?.templatePrefix && basename.startsWith(pipe.templatePrefix)) {
+            return pipe.id;
+        }
+        }
+        return null;
+    }
+    
+    // Convenience: get a pipeline config by id (useful if you later want more than id)
+    private getPipelineById(pipelineId: string): any | null {
+        const p = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+        const s = p?.settings?.abcsPhase0;
+        if (!s) return null;
+        const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+        return (prof?.pipelines || []).find((x: any) => x.id === pipelineId) || null;
+    }
     async showTemplatesForLetter(letter: string) {
         const { contentEl } = this;
         const templateListContainer = contentEl.querySelector('.template-list-container');
@@ -118,10 +141,11 @@ export class ABCsModal extends Modal {
             });
             settingsButton.addEventListener('click', async () => {
                 const { ArchiveSettingsModal } = await import('./ArchiveSettingsModal');
+                const tplFolder = this.plugin.settings.templateFolderPath || 'C/Templates';
                 const currentSettings = this.plugin.settings.archiveSettings || {
-                    enabled: false,
-                    archiveAfterDays: 30,
-                    excludeFolders: ['Templates']
+                enabled: false,
+                archiveAfterDays: 30,
+                excludeFolders: [tplFolder, 'E'] // exclude C/Templates and all of E
                 };
                 const modal = new ArchiveSettingsModal(
                     this.app,
@@ -152,14 +176,16 @@ export class ABCsModal extends Modal {
                 
                 // Handle special C-template that should act under D
                 if (template.basename.startsWith('Content-to-D-Projects-')) {
-                    await this.handleContentToDProjects(template);
+                    const pipelineId = this.resolvePipelineIdForTemplate(template) || 'content-to-d-projects';
+                    await this.handleContentToDProjects(template, pipelineId);
                     return;
-                }
+                  }
                 // Handle special Tips-to-D-Exams templates (exams now under D)
                 if (template.basename.startsWith('Tips-to-D-Exams-')) {
-                    await this.handleTipsToEExams(template);
+                    const pipelineId = this.resolvePipelineIdForTemplate(template) || 'tips-to-d-exams';
+                    await this.handleTipsToEExams(template, pipelineId);
                     return;
-                }
+                  }
                 // Check if this is an "Insert-to-" template
                 if (template.basename.startsWith('Insert-to-')) {
                     // Read template content
@@ -192,34 +218,34 @@ export class ABCsModal extends Modal {
         );
     }
 	
-	async handleContentToDProjects(template: TFile) {
-        // Collect all Content-to-D-Projects templates
+	async handleContentToDProjects(template: TFile, pipelineId: string) {
         const allTemplates = this.app.vault.getMarkdownFiles();
         const projectTemplates = allTemplates.filter(file => 
-            file.basename.startsWith('Content-to-D-Projects-')
+          file.basename.startsWith('Content-to-D-Projects-')
         );
-        
+      
         await this.contentToDProjectsHandler.handleContentToDProjects(
-            projectTemplates, 
-            template, // Pass the initially selected template
-            this.contentEl, 
-            () => this.close()
+          projectTemplates,
+          template,
+          this.contentEl,
+          () => this.close(),
+          pipelineId
         );
-    }
-    async handleTipsToEExams(template: TFile) {
-        // Collect all Tips-to-E-Exams templates
+      }
+      async handleTipsToEExams(template: TFile, pipelineId: string) {
         const allTemplates = this.app.vault.getMarkdownFiles();
         const examTemplates = allTemplates.filter(file =>
-            file.basename.startsWith('Tips-to-D-Exams-')
+          file.basename.startsWith('Tips-to-D-Exams-')
         );
-        
+      
         await this.tipsToEExamsHandler.handleTipsToEExams(
-            examTemplates, 
-            template, // Pass the initially selected template
-            this.contentEl, 
-            () => this.close()
+          examTemplates,
+          template,
+          this.contentEl,
+          () => this.close(),
+          pipelineId
         );
-    }
+      }
     /**
  * Handle Insert-to template processing
  */

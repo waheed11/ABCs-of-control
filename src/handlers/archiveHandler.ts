@@ -21,7 +21,7 @@ export class ArchiveHandler {
 			// Search for files containing #archived tag
 			for (const file of allFiles) {
 				// Skip files already in E/Archive
-				if (file.path.startsWith('E/Archive/')) {
+				if (file.path.startsWith('E/')) {
 					continue;
 				}
 

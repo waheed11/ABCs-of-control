@@ -1,7 +1,7 @@
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import * as path from 'path';
 import { HeadingMeta, Selection } from '../types';
-import { ensureFolderExists, confirmModal, parseSection, compareSection, detectArabicContent } from '../utils';
+import { ensureFolderExists, confirmModal, parseSection, compareSection, detectArabicContent, getPipelineTargetPath  } from '../utils';
 import { ArchiveHandler } from './archiveHandler';
 
 export class TipsToEExamsHandler {
@@ -15,7 +15,7 @@ export class TipsToEExamsHandler {
 	 * Handle Tips-to-E-Exams template processing with proper numeric ordering
 	 * Based on the working implementation from ContentToDProjectsHandler
 	 */
-	async handleTipsToEExams(templates: TFile[], initialTemplate: TFile, contentEl: HTMLElement, closeModal: () => void) {
+	async handleTipsToEExams(templates: TFile[], initialTemplate: TFile, contentEl: HTMLElement, closeModal: () => void, pipelineId: string = 'tips-to-d-exams') {
 		contentEl.empty();
 
 		// Extract exam names from all templates
@@ -71,7 +71,7 @@ export class TipsToEExamsHandler {
 				existingContent.remove();
 			}
 			
-			await this.buildExamUI(templateContent, examName, contentEl, closeModal);
+			await this.buildExamUI(templateContent, examName, contentEl, closeModal, pipelineId);
 		};
 		
 		// Exam selection change handler
@@ -86,7 +86,7 @@ export class TipsToEExamsHandler {
 	/**
 	 * Build the exam-specific UI (headings, selections, etc.)
 	 */
-	private async buildExamUI(templateContent: string, examName: string, contentEl: HTMLElement, closeModal: () => void) {
+	private async buildExamUI(templateContent: string, examName: string, contentEl: HTMLElement, closeModal: () => void, pipelineId: string) {
 		const examContainer = contentEl.createDiv({ cls: 'exam-content' });
 		
 		// Parse headings with level and numeric section (e.g., 1.2.3)
@@ -145,11 +145,36 @@ export class TipsToEExamsHandler {
 			attr: { for: 'include-archive-notes-tips' }
 		});
 
-		let includeArchiveNotes = false; // Default: exclude archive notes
-		archiveCheckbox.addEventListener('change', () => {
-			includeArchiveNotes = archiveCheckbox.checked;
-			// The search input will be created later, so we'll handle the refresh there
+		//let includeArchiveNotes = false;
+		const getPlugin = () => (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+		const getIncludeArchiveDefault = (): boolean => {
+		const p = getPlugin();
+		const s = p?.settings?.abcsPhase0;
+		if (!s) return false;
+		const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+		const pipe = prof?.pipelines?.find((x: any) => x.id === 'tips-to-d-exams');
+		return Boolean(pipe?.search?.includeArchive);
+		};
+		const setIncludeArchivePersist = async (value: boolean) => {
+		const p = getPlugin();
+		if (!p?.settings?.abcsPhase0) return;
+		const s = p.settings.abcsPhase0;
+		const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+		const pipe = prof?.pipelines?.find((x: any) => x.id === 'tips-to-d-exams');
+		if (!pipe) return;
+		pipe.search = pipe.search || { includeArchive: false };
+		pipe.search.includeArchive = value;
+		await p.saveSettings?.();
+		};
+
+		let includeArchiveNotes = getIncludeArchiveDefault();
+		archiveCheckbox.checked = includeArchiveNotes;
+
+		archiveCheckbox.addEventListener('change', async () => {
+		includeArchiveNotes = archiveCheckbox.checked;
+		await setIncludeArchivePersist(includeArchiveNotes);
 		});
+
 		const listEl = selectedList.createEl('ul');
 		const selections: Selection[] = [];
 		
@@ -346,7 +371,9 @@ export class TipsToEExamsHandler {
 				return; 
 			}
 			
-			const targetPath = normalizePath(`D/Exams/${examName}/Tips.md`);
+			const defaultPattern = `D/Exams/{exam}/Tips.md`;
+			const resolved = getPipelineTargetPath(this.app, pipelineId, { exam: examName });
+			const targetPath = normalizePath((resolved ?? defaultPattern).replace('{exam}', examName));
 			await ensureFolderExists(this.app, path.dirname(targetPath));
 			
 			let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
