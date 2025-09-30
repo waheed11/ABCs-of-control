@@ -183,37 +183,12 @@ export async function getTemplateFiles(app: App, templateFolderPath: string): Pr
 				templateMap.set('D', letterFiles);
 				continue;
 			}
-			// Check if the file name starts with "Insert-to-"
-			if (fileName.startsWith('Insert-to-')) {
-				// Extract the letter after "Insert-to-"
-				const parts = fileName.substring('Insert-to-'.length).split('-');
-				if (parts.length > 0) {
-					const letter = parts[0].toUpperCase();
-					if (ALPHABET.includes(letter)) {
-						const letterFiles = templateMap.get(letter) || [];
-						letterFiles.push(file);
-						templateMap.set(letter, letterFiles);
-					}
-				}
-			} else if (fileName.startsWith('Invoke-')) {
-				// Extract the letter after "Invoke-"
-				const parts = fileName.substring('Invoke-'.length).split('-');
-				if (parts.length > 0) {
-					const letter = parts[0].toUpperCase();
-					if (ALPHABET.includes(letter)) {
-						const letterFiles = templateMap.get(letter) || [];
-						letterFiles.push(file);
-						templateMap.set(letter, letterFiles);
-					}
-				}
-			} else {
-				// Check if the file name starts with a letter followed by a dash
-				const firstChar = fileName.charAt(0).toUpperCase();
-				if (ALPHABET.includes(firstChar) && fileName.charAt(1) === '-') {
-					const letterFiles = templateMap.get(firstChar) || [];
-					letterFiles.push(file);
-					templateMap.set(firstChar, letterFiles);
-				}
+			// Check if the file name starts with a letter followed by a dash
+			const firstChar = fileName.charAt(0).toUpperCase();
+			if (ALPHABET.includes(firstChar) && fileName.charAt(1) === '-') {
+				const letterFiles = templateMap.get(firstChar) || [];
+				letterFiles.push(file);
+				templateMap.set(firstChar, letterFiles);
 			}
 		} else if (file instanceof TFolder) {
 			// Process files within subfolders
@@ -230,42 +205,6 @@ export async function getTemplateFiles(app: App, templateFolderPath: string): Pr
 	return templateMap;
 }
 
-/**
- * Extract JavaScript code from template content
- */
-export function extractJavaScriptCode(templateContent: string): string {
-	// First, check for Templater syntax <%* ... %>
-	const templaterRegex = /<%\*([\s\S]*?)%>/g;
-	const templaterMatches = [...templateContent.matchAll(templaterRegex)];
-	
-	if (templaterMatches.length > 0) {
-		// Return the content of the first Templater code block
-		return templaterMatches[0][1].trim();
-	}
-	
-	// If no Templater syntax, look for code blocks with js, javascript, or typescript language specifiers
-	const codeBlockRegex = /```(?:js|javascript|typescript)\s*([\s\S]*?)```/g;
-	const matches = [...templateContent.matchAll(codeBlockRegex)];
-	
-	if (matches.length > 0) {
-		// Return the content of the first code block
-		return matches[0][1].trim();
-	}
-	
-	// If no code block is found, check if the entire content is JavaScript
-	// This is a fallback for templates that don't use code blocks
-	if (templateContent.trim().startsWith('//') || 
-		templateContent.trim().startsWith('/*') || 
-		templateContent.trim().startsWith('function') || 
-		templateContent.trim().startsWith('const') || 
-		templateContent.trim().startsWith('let') || 
-		templateContent.trim().startsWith('var') || 
-		templateContent.trim().startsWith('import')) {
-		return templateContent.trim();
-	}
-	
-	return '';
-}
 
 // Build a path from a pattern like "D/Projects/{project}/Content.md"
 export function buildTargetPath(pattern: string, vars: Record<string, string>): string {

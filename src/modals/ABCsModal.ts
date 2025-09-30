@@ -1,10 +1,7 @@
 import { App, Modal, TFile, Notice, normalizePath } from 'obsidian';
-import * as path from 'path';
 import { MyPluginSettings, HeadingMeta, Selection } from '../types';
 import { WHEN_TO_USE_OPTIONS } from '../constants';
-import { getTemplateFiles, ensureFolderExists, parseSection, compareSection, detectArabicContent, extractJavaScriptCode } from '../utils';
-import { SuggesterModal } from './SuggesterModal';
-import { PromptModal } from './PromptModal';
+import { getTemplateFiles, ensureFolderExists, parseSection, compareSection, detectArabicContent } from '../utils';
 import { ContentToDProjectsHandler } from '../handlers/contentToDProjectsHandler';
 import { NoteCreationHandler } from '../handlers/noteCreationHandler';
 import { TipsToEExamsHandler } from '../handlers/tipsToEExamsHandler';
@@ -180,34 +177,19 @@ export class ABCsModal extends Modal {
             templateButton.addEventListener('click', async () => {
                 this.selectedTemplate = template;
                 
-                // Handle special C-template that should act under D
+                // Check if template matches a pipeline (insert operation)
                 const pipelineId = this.resolvePipelineIdForTemplate(template);
                 if (pipelineId === 'content-to-d-projects') {
-                await this.handleContentToDProjects(template, pipelineId);
-                return;
+                    await this.handleContentToDProjects(template, pipelineId);
+                    return;
                 }
                 if (pipelineId === 'tips-to-d-exams') {
-                await this.handleTipsToEExams(template, pipelineId);
-                return;
+                    await this.handleTipsToEExams(template, pipelineId);
+                    return;
                 }
-                // Check if this is an "Insert-to-" template
-                if (template.basename.startsWith('Insert-to-')) {
-                    // Read template content
-                    const templateContent = await this.app.vault.read(template);
-                    // Handle insert-to template directly
-                    await this.handleInsertToTemplate(template, templateContent);
-                } else if (template.basename.startsWith('Invoke-')) {
-                    // Read template content
-                    const templateContent = await this.app.vault.read(template);
-                    // Handle invoke template directly
-                    await this.handleInvokeTemplate(template, templateContent);
-                } else if (template.basename.includes("Literature Notes") || letter === "B") {
-                    // Literature note template or any template in section B - go directly to data source selection
-                    this.promptForNoteCreation();
-                } else {
-                    // Regular template - unified create note modal
-                    this.promptForNoteCreation();
-                }
+                
+                // Default: create note from template
+                this.promptForNoteCreation();
             });
         }
     }
@@ -254,132 +236,6 @@ export class ABCsModal extends Modal {
           pipelineId
         );
       }
-    /**
- * Handle Insert-to template processing
- */
-async handleInsertToTemplate(template: TFile, templateContent: string) {
-    const { contentEl } = this;
-    contentEl.empty();
-    
-    // Parse the template name to determine the target file path
-    const templateName = template.basename;
-    const pathParts = templateName.replace('Insert-to-', '').split('-');
-    
-    if (pathParts.length < 2) {
-        new Notice('Invalid Insert-to template format');
-        this.close();
-        return;
-    }
-    
-    // Determine the target file path
-    let targetPath = pathParts.join('/');
-    if (!targetPath.endsWith('.md')) {
-        targetPath += '.md';
-    }
-    
-    targetPath = normalizePath(targetPath);
-    
-    // Check if the target file exists
-    const targetFile = this.app.vault.getAbstractFileByPath(targetPath);
-    if (!targetFile || !(targetFile instanceof TFile)) {
-        new Notice(`Target file not found: ${targetPath}`);
-        this.close();
-        return;
-    }
-    
-    // Simple text insertion interface
-    contentEl.createEl('h2', { text: 'Enter Text to Insert' });
-    contentEl.createEl('p', { text: `Target file: ${targetPath}` });
-    
-    const textArea = contentEl.createEl('textarea', {
-        attr: { rows: '10', placeholder: 'Enter text to insert', style: 'width: 100%; margin: 20px 0;' }
-    });
-    
-    const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
-    const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
-    cancelButton.addEventListener('click', () => this.close());
-    
-    const insertButton = buttonContainer.createEl('button', { text: 'Insert' });
-    insertButton.addEventListener('click', async () => {
-        const textToInsert = textArea.value.trim();
-        if (!textToInsert) {
-            new Notice('Please enter text to insert');
-            return;
-        }
-        
-        try {
-            const targetContent = await this.app.vault.read(targetFile as TFile);
-            const newContent = targetContent + '\n\n' + textToInsert;
-            await this.app.vault.modify(targetFile as TFile, newContent);
-            new Notice(`Text inserted into ${targetPath}`);
-            this.close();
-        } catch (error) {
-            new Notice(`Error inserting text: ${(error as Error).message}`);
-        }
-    });
-}
-
-/**
- * Handle Invoke template processing
- */
-async handleInvokeTemplate(template: TFile, templateContent: string) {
-    try {
-        // Extract JavaScript code from the template content
-        const jsCode = extractJavaScriptCode(templateContent);
-        
-        if (!jsCode) {
-            new Notice('No JavaScript code found in the template');
-            this.close();
-            return;
-        }
-        
-        // Create a function context with useful variables
-        const app = this.app;
-        const plugin = this.plugin;
-        
-        // Create a mock tp object similar to Templater for compatibility
-        const tp = {
-            file: {
-                path: template.path,
-                basename: template.basename,
-                extension: template.extension,
-                folder: path.dirname(template.path)
-            },
-            system: {
-                suggester: async (displayTexts: string[], values: any[], throwOnCancel: boolean = false, placeholder: string = "") => {
-                    return new Promise((resolve) => {
-                        const modal = new SuggesterModal(this.app, displayTexts, values, placeholder, resolve);
-                        modal.open();
-                    });
-                },
-                prompt: async (promptText: string, defaultValue: string = "", throwOnCancel: boolean = false, placeholder: string = "") => {
-                    return new Promise((resolve) => {
-                        const modal = new PromptModal(this.app, promptText, defaultValue, placeholder, resolve);
-                        modal.open();
-                    });
-                }
-            }
-        };
-        
-        // Create a function from the code
-        const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-        const fn = new AsyncFunction('app', 'plugin', 'tp', jsCode);
-        
-        // Execute the function
-        const result = await fn(app, plugin, tp);
-        
-        // If the function returns a string, show it as a notice
-        if (typeof result === 'string' && result.trim() !== '') {
-            new Notice(result);
-        }
-        
-        this.close();
-    } catch (error) {
-        console.error('Error executing JavaScript code:', error);
-        new Notice(`Error executing JavaScript code: ${(error as Error).message}`);
-        this.close();
-    }
-}
 // Draw requested arrows using an SVG overlay
 private drawArrows(abcContainer: HTMLElement, cells: Record<string, HTMLElement>) {
     const svgns = 'http://www.w3.org/2000/svg';
