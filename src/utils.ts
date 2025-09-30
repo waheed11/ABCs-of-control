@@ -150,23 +150,34 @@ export async function getTemplateFiles(app: App, templateFolderPath: string): Pr
 	if (!templateFolder || !(templateFolder instanceof TFolder)) {
 		return templateMap;
 	}
-	
+	// Read dynamic prefixes from Phase 0
+	const p = (app as any).plugins?.plugins?.['ABCs-of-control'];
+	const s = p?.settings?.abcsPhase0;
+	let contentPrefix = 'Content-to-D-Projects-';
+	let tipsPrefix = 'Tips-to-D-Exams-';
+	if (s) {
+	const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+	if (prof?.pipelines) {
+		const contentPipe = prof.pipelines.find((x: any) => x.id === 'content-to-d-projects');
+		const tipsPipe = prof.pipelines.find((x: any) => x.id === 'tips-to-d-exams');
+		if (contentPipe?.templatePrefix) contentPrefix = contentPipe.templatePrefix;
+		if (tipsPipe?.templatePrefix) tipsPrefix = tipsPipe.templatePrefix;
+	}
+	} 
 	// Process all files in the template folder
 	for (const file of templateFolder.children) {
 		if (file instanceof TFile && file.extension === 'md') {
 			const fileName = file.basename;
 			
-			// Check if the file name starts with our special Content-to-D-Projects- prefix
-			if (fileName.startsWith('Content-to-D-Projects-')) {
-				// Force-list under D
+			// Check if the file name matches dynamic Content-to-D-Projects prefix
+			if (fileName.startsWith(contentPrefix)) {
 				const letterFiles = templateMap.get('D') || [];
 				letterFiles.push(file);
 				templateMap.set('D', letterFiles);
 				continue;
 			}
-			// Check if the file name starts with our special Tips-to-D-Exams- prefix
-			if (fileName.startsWith('Tips-to-D-Exams-')) {
-				// Force-list under D
+			// Check if the file name matches dynamic Tips-to-D-Exams prefix
+			if (fileName.startsWith(tipsPrefix)) {
 				const letterFiles = templateMap.get('D') || [];
 				letterFiles.push(file);
 				templateMap.set('D', letterFiles);

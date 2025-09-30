@@ -103,7 +103,13 @@ export class ABCsModal extends Modal {
         }
         return null;
     }
-    
+    private getActivePipelineById(pipelineId: string): any | null {
+        const p = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+        const s = p?.settings?.abcsPhase0;
+        if (!s) return null;
+        const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+        return (prof?.pipelines || []).find((x: any) => x.id === pipelineId) || null;
+      }
     // Convenience: get a pipeline config by id (useful if you later want more than id)
     private getPipelineById(pipelineId: string): any | null {
         const p = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
@@ -175,17 +181,15 @@ export class ABCsModal extends Modal {
                 this.selectedTemplate = template;
                 
                 // Handle special C-template that should act under D
-                if (template.basename.startsWith('Content-to-D-Projects-')) {
-                    const pipelineId = this.resolvePipelineIdForTemplate(template) || 'content-to-d-projects';
-                    await this.handleContentToDProjects(template, pipelineId);
-                    return;
-                  }
-                // Handle special Tips-to-D-Exams templates (exams now under D)
-                if (template.basename.startsWith('Tips-to-D-Exams-')) {
-                    const pipelineId = this.resolvePipelineIdForTemplate(template) || 'tips-to-d-exams';
-                    await this.handleTipsToEExams(template, pipelineId);
-                    return;
-                  }
+                const pipelineId = this.resolvePipelineIdForTemplate(template);
+                if (pipelineId === 'content-to-d-projects') {
+                await this.handleContentToDProjects(template, pipelineId);
+                return;
+                }
+                if (pipelineId === 'tips-to-d-exams') {
+                await this.handleTipsToEExams(template, pipelineId);
+                return;
+                }
                 // Check if this is an "Insert-to-" template
                 if (template.basename.startsWith('Insert-to-')) {
                     // Read template content
@@ -220,8 +224,10 @@ export class ABCsModal extends Modal {
 	
 	async handleContentToDProjects(template: TFile, pipelineId: string) {
         const allTemplates = this.app.vault.getMarkdownFiles();
-        const projectTemplates = allTemplates.filter(file => 
-          file.basename.startsWith('Content-to-D-Projects-')
+        const pipe = this.getPipelineById(pipelineId);
+        const prefix = pipe?.templatePrefix || 'Content-to-D-Projects-';
+        const projectTemplates = allTemplates.filter(file =>
+        file.basename.startsWith(prefix)
         );
       
         await this.contentToDProjectsHandler.handleContentToDProjects(
@@ -234,8 +240,10 @@ export class ABCsModal extends Modal {
       }
       async handleTipsToEExams(template: TFile, pipelineId: string) {
         const allTemplates = this.app.vault.getMarkdownFiles();
+        const pipe = this.getPipelineById(pipelineId);
+        const prefix = pipe?.templatePrefix || 'Tips-to-D-Exams-';
         const examTemplates = allTemplates.filter(file =>
-          file.basename.startsWith('Tips-to-D-Exams-')
+        file.basename.startsWith(prefix)
         );
       
         await this.tipsToEExamsHandler.handleTipsToEExams(

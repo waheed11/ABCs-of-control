@@ -19,12 +19,18 @@ export class ContentToDProjectsHandler {
 		contentEl.empty();
 
 		// Extract project names from all templates
-		const prefix = 'Content-to-D-Projects-';
+		// Read dynamic prefix from Phase 0 using the provided pipelineId
+		const p0 = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+		const s0 = p0?.settings?.abcsPhase0;
+		const prof0 = s0?.profiles?.find((x:any)=>x.id===s0.activeProfile) || s0?.profiles?.[0];
+		const pipe0 = prof0?.pipelines?.find((x:any)=>x.id===pipelineId);
+		const prefix = pipe0?.templatePrefix || 'Content-to-D-Projects-';
+
 		const projects: { name: string; template: TFile }[] = templates.map(template => ({
-			name: template.basename.startsWith(prefix) 
-				? template.basename.substring(prefix.length)
-				: template.basename,
-			template
+		name: template.basename.startsWith(prefix)
+			? template.basename.substring(prefix.length)
+			: template.basename,
+		template
 		}));
 		
 		// Sort projects alphabetically
@@ -32,8 +38,8 @@ export class ContentToDProjectsHandler {
 		
 		// Find initial project
 		const initialProjectName = initialTemplate.basename.startsWith(prefix)
-			? initialTemplate.basename.substring(prefix.length)
-			: initialTemplate.basename;
+		? initialTemplate.basename.substring(prefix.length)
+		: initialTemplate.basename;
 		
 		let currentProject = projects.find(p => p.name === initialProjectName) || projects[0];
 		if (!currentProject) {
@@ -344,7 +350,13 @@ export class ContentToDProjectsHandler {
 			const dest = await archiveHandler.moveProjectOrExam('project', projectName);
 
 			// Move corresponding D template to E/Templates and rename it so it no longer shows under D
-			const oldTemplatePath = normalizePath(`C/Templates/Content-to-D-Projects-${projectName}.md`);
+			// Respect the pipeline's current template prefix when locating the template to move
+		const p1 = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+		const s1 = p1?.settings?.abcsPhase0;
+		const prof1 = s1?.profiles?.find((x:any)=>x.id===s1.activeProfile) || s1?.profiles?.[0];
+		const pipe1 = prof1?.pipelines?.find((x:any)=>x.id===pipelineId);
+		const currentPrefix = pipe1?.templatePrefix || 'Content-to-D-Projects-';
+		const oldTemplatePath = normalizePath(`C/Templates/${currentPrefix}${projectName}.md`);
 			const oldTemplate = this.app.vault.getAbstractFileByPath(oldTemplatePath) as TFile | null;
 			if (oldTemplate) {
 			await ensureFolderExists(this.app, 'E/Templates');
