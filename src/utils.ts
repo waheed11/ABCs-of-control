@@ -1,6 +1,6 @@
-import { App, Modal, TFile, TFolder, MarkdownView, MarkdownFileInfo, normalizePath } from 'obsidian';
+import { App, Modal, TFile, TFolder, MarkdownView, MarkdownFileInfo, normalizePath, Notice } from 'obsidian';
 import * as path from 'path';
-import { HeadingMeta } from './types';
+import { HeadingMeta, Profile, RoleLetter } from './types';
 import { ALPHABET } from './constants';
 
 export async function confirmModal(
@@ -103,17 +103,29 @@ export function compareSection(a: number[], b: number[]): number {
  * Ensure a folder exists, creating it recursively if needed
  */
 export async function ensureFolderExists(app: App, folderPath: string): Promise<void> {
-	const existing = app.vault.getAbstractFileByPath(folderPath);
+	// Normalize the path
+	const normalizedPath = normalizePath(folderPath);
+	const existing = app.vault.getAbstractFileByPath(normalizedPath);
 	if (existing instanceof TFolder) return;
 	
 	// Recursively create folders
-	const parts = folderPath.split('/');
+	const parts = normalizedPath.split('/');
 	let current = '';
 	for (const p of parts) {
+		if (!p) continue; // Skip empty parts
 		current = current ? `${current}/${p}` : p;
 		const f = app.vault.getAbstractFileByPath(current);
 		if (!f) {
-			await app.vault.createFolder(current);
+			try {
+				await app.vault.createFolder(current);
+			} catch (error) {
+				// Ignore "already exists" errors (race condition or vault sync)
+				if (!(error instanceof Error) || !error.message.includes('already exists')) {
+					throw error;
+				}
+			}
+		} else if (!(f instanceof TFolder)) {
+			throw new Error(`Path exists but is not a folder: ${current}`);
 		}
 	}
 }
@@ -135,8 +147,10 @@ export async function getFilesInFolder(folder: TFolder): Promise<TFile[]> {
 
 /**
  * Get all template files organized by letter
+ * Templates are ONLY discovered from C/Templates
+ * Role folders are for destination paths, not template discovery
  */
-export async function getTemplateFiles(app: App, templateFolderPath: string): Promise<Map<string, TFile[]>> {
+export async function getTemplateFiles(app: App, templateFolderPath?: string): Promise<Map<string, TFile[]>> {
 	const templateMap = new Map<string, TFile[]>();
 	
 	// Initialize map with empty arrays for each letter
@@ -144,78 +158,145 @@ export async function getTemplateFiles(app: App, templateFolderPath: string): Pr
 		templateMap.set(letter, []);
 	});
 	
-	// Get the template folder
-	const templateFolder = app.vault.getAbstractFileByPath(templateFolderPath);
+	// Scan C/Templates for all templates
+	await scanCTemplates(app, templateMap);
+	
+	return templateMap;
+}
+
+/**
+ * Scan C/Templates for traditional A-, B- prefixed templates and pipeline templates
+ */
+async function scanCTemplates(app: App, templateMap: Map<string, TFile[]>): Promise<void> {
+	const folderPath = getTemplatesFolder(app);
+	const templateFolder = app.vault.getAbstractFileByPath(folderPath);
 	
 	if (!templateFolder || !(templateFolder instanceof TFolder)) {
-		return templateMap;
+		return;
 	}
-	// Read dynamic prefixes from Phase 0
+	
+	// Read ALL pipeline configurations from Phase 0
 	const p = (app as any).plugins?.plugins?.['ABCs-of-control'];
 	const s = p?.settings?.abcsPhase0;
-	let contentPrefix = 'Content-to-D-Projects-';
-	let tipsPrefix = 'Tips-to-D-Exams-';
+	const allPipelines: Array<{ prefix: string; targetLetter: string }> = [];
+	
 	if (s) {
-	const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
-	if (prof?.pipelines) {
-		const contentPipe = prof.pipelines.find((x: any) => x.id === 'content-to-d-projects');
-		const tipsPipe = prof.pipelines.find((x: any) => x.id === 'tips-to-d-exams');
-		if (contentPipe?.templatePrefix) contentPrefix = contentPipe.templatePrefix;
-		if (tipsPipe?.templatePrefix) tipsPrefix = tipsPipe.templatePrefix;
+		const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+		if (prof?.pipelines) {
+			// Collect all pipeline prefixes and their target letters
+			for (const pipe of prof.pipelines) {
+				if (pipe.templatePrefix && pipe.targetPath) {
+					// Extract the first letter from the target path (e.g., "D/P/{project}/Test.md" -> "D")
+					const targetLetter = pipe.targetPath.charAt(0).toUpperCase();
+					if (ALPHABET.includes(targetLetter)) {
+						allPipelines.push({
+							prefix: pipe.templatePrefix,
+							targetLetter: targetLetter
+						});
+					}
+				}
+			}
+		}
 	}
-	} 
+	
 	// Process all files in the template folder
 	for (const file of templateFolder.children) {
 		if (file instanceof TFile && file.extension === 'md') {
 			const fileName = file.basename;
+			let matched = false;
 			
-			// Check if the file name matches dynamic Content-to-D-Projects prefix
-			if (fileName.startsWith(contentPrefix)) {
-				const letterFiles = templateMap.get('D') || [];
-				letterFiles.push(file);
-				templateMap.set('D', letterFiles);
-				continue;
+			// Check if the file name matches any pipeline prefix
+			for (const pipeline of allPipelines) {
+				if (fileName.startsWith(pipeline.prefix)) {
+					const letterFiles = templateMap.get(pipeline.targetLetter) || [];
+					letterFiles.push(file);
+					templateMap.set(pipeline.targetLetter, letterFiles);
+					matched = true;
+					break; // Stop after first match
+				}
 			}
-			// Check if the file name matches dynamic Tips-to-D-Exams prefix
-			if (fileName.startsWith(tipsPrefix)) {
-				const letterFiles = templateMap.get('D') || [];
-				letterFiles.push(file);
-				templateMap.set('D', letterFiles);
-				continue;
-			}
-			// Check if the file name starts with a letter followed by a dash
+			
+			if (matched) continue;
+			
+			// Check if the file name starts with a letter followed by a dash (e.g., A-Something)
 			const firstChar = fileName.charAt(0).toUpperCase();
 			if (ALPHABET.includes(firstChar) && fileName.charAt(1) === '-') {
 				const letterFiles = templateMap.get(firstChar) || [];
 				letterFiles.push(file);
 				templateMap.set(firstChar, letterFiles);
+				continue;
 			}
-		} else if (file instanceof TFolder) {
-			// Process files within subfolders
-			const folderFiles = await getFilesInFolder(file);
 			
-			// Add folder to the map with its files
-			if (folderFiles.length > 0) {
-				const folderName = file.name;
-				templateMap.set(folderName, folderFiles);
+			// For templates without letter prefix, infer from path structure
+			// E.g., "StarterKit-3_Permanent" -> first part is "StarterKit", check if it maps to a role folder
+			const parts = fileName.split('-');
+			if (parts.length > 0) {
+				const targetLetter = inferLetterFromPath(app, parts);
+				if (targetLetter) {
+					const letterFiles = templateMap.get(targetLetter) || [];
+					letterFiles.push(file);
+					templateMap.set(targetLetter, letterFiles);
+				}
 			}
 		}
 	}
-	
-	return templateMap;
 }
 
+/**
+ * Infer which letter (A/B/D) a template belongs to based on its path structure
+ * E.g., "StarterKit-3_Permanent" -> Check if "StarterKit/3_Permanent" matches a configured folder
+ */
+function inferLetterFromPath(app: App, pathParts: string[]): string | null {
+	// Build the path from parts (e.g., ["StarterKit", "3_Permanent"] -> "StarterKit/3_Permanent")
+	const targetPath = pathParts.join('/');
+	
+	const prof = getPhase0(app);
+	if (!prof) return null;
+	
+	// Collect all folders with their letter for exact/prefix matching
+	const allMappings: Array<{ letter: string; folder: string }> = [];
+	
+	(prof.roles.A || []).forEach(f => allMappings.push({ letter: 'A', folder: f.replace(/\/+$/, '').replace(/\/$/, '') }));
+	(prof.roles.B || []).forEach(f => allMappings.push({ letter: 'B', folder: f.replace(/\/+$/, '').replace(/\/$/, '') }));
+	(prof.roles.D || []).forEach(f => allMappings.push({ letter: 'D', folder: f.replace(/\/+$/, '').replace(/\/$/, '') }));
+	
+	// Sort by folder length descending (longest/most specific first)
+	allMappings.sort((a, b) => b.folder.length - a.folder.length);
+	
+	// Find the best match
+	for (const mapping of allMappings) {
+		const folder = mapping.folder;
+		// Check if target path exactly matches folder or starts with it
+		if (targetPath === folder || targetPath.startsWith(folder + '/')) {
+			return mapping.letter;
+		}
+	}
+	
+	return null;
+}
+
+/**
+ * Get folder paths for multi-folder roles (A, B, D)
+ */
+export function getRoleFolders(app: App, role: 'A' | 'B' | 'D'): string[] {
+    const prof = getPhase0(app);
+    if (!prof) return [];
+    const folders = prof.roles[role] || [];
+    return folders.map((f: string) => f.replace(/\/+$/, '').replace(/\/$/, ''));
+}
+
+// ===== Pipeline helpers =====
 
 // Build a path from a pattern like "D/Projects/{project}/Content.md"
 export function buildTargetPath(pattern: string, vars: Record<string, string>): string {
 	return Object.keys(vars).reduce((acc, key) => {
-	  const re = new RegExp(`\\{${key}\\}`, 'g');
-	  return acc.replace(re, vars[key]);
+		const re = new RegExp(`\\{${key}\\}`, 'g');
+		return acc.replace(re, vars[key]);
 	}, pattern);
-  }
-  
-  // Read pipeline target pattern from Phase 0 and build a concrete path
-  export function getPipelineTargetPath(app: App, pipelineId: string, vars: Record<string,string>): string | null {
+}
+
+// Read pipeline target pattern from Phase 0 and build a concrete path
+export function getPipelineTargetPath(app: App, pipelineId: string, vars: Record<string,string>): string | null {
 	const p = (app as any).plugins?.plugins?.['ABCs-of-control'];
 	const s = p?.settings?.abcsPhase0;
 	if (!s) return null;
@@ -223,4 +304,76 @@ export function buildTargetPath(pattern: string, vars: Record<string, string>): 
 	const pipe = (prof?.pipelines || []).find((x: any) => x.id === pipelineId);
 	if (!pipe?.targetPath) return null;
 	return buildTargetPath(pipe.targetPath, vars);
-  }
+}
+
+// ===== Role folder helpers =====
+
+/**
+ * Get the active Phase 0 profile
+ */
+export function getPhase0(app: App): Profile | null {
+	const p = (app as any).plugins?.plugins?.['ABCs-of-control'];
+	const s = p?.settings?.abcsPhase0;
+	if (!s) return null;
+	return s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0] || null;
+}
+
+/**
+ * Get single folder path for E (archive)
+ * C is hardcoded to 'C' and not configurable
+ */
+export function getRoleRoot(app: App, role: 'C' | 'E'): string {
+	if (role === 'C') {
+		return 'C'; // C is always 'C', not configurable
+	}
+	
+	const prof = getPhase0(app);
+	if (!prof) return 'E/Archive'; // fallback for E
+	
+	const value = prof.roles.E;
+	
+	// Backward compatibility: if it's an array (old format), take first element
+	if (Array.isArray(value)) {
+		const path = value[0] || 'E/Archive';
+		return path.replace(/\/$/, ''); // Remove trailing slash
+	}
+	
+	const stringValue = value || 'E/Archive';
+	return stringValue.replace(/\/$/, ''); // Remove trailing slash
+}
+
+/**
+ * Get the templates folder path - always C/Templates (hardcoded)
+ */
+export function getTemplatesFolder(app: App): string {
+	return 'C/Templates';
+}
+
+/**
+ * Check if a path is under a given root folder
+ */
+export function isPathUnder(targetPath: string, rootFolder: string): boolean {
+    const normalizedTargetPath = normalizePath(targetPath).replace(/\/+$/, '').replace(/\/$/, '');
+    const normalizedRootFolder = normalizePath(rootFolder).replace(/\/+$/, '').replace(/\/$/, '');
+    return normalizedTargetPath === normalizedRootFolder || normalizedTargetPath.startsWith(normalizedRootFolder + '/');
+}
+
+/**
+ * Validate that a target path is under the configured role folder(s)
+ * Show a warning Notice if validation fails
+ */
+export function ensureUnderRole(app: App, role: RoleLetter, targetPath: string): boolean {
+	let valid = false;
+	if (role === 'C' || role === 'E') {
+		const root = getRoleRoot(app, role);
+		valid = isPathUnder(targetPath, root);
+	} else {
+		const folders = getRoleFolders(app, role);
+		valid = folders.some(root => isPathUnder(targetPath, root));
+	}
+	
+	if (!valid) {
+		new Notice(`Warning: Target path "${targetPath}" is outside configured ${role} folder(s)`);
+	}
+	return valid;
+}

@@ -51,10 +51,97 @@ export class ABCsSettingTab extends PluginSettingTab {
 					this.plugin.settings.language = value;
 					await this.plugin.saveSettings();
 				}));
+
+		// ---- Role Folder Configuration ----
+		containerEl.createEl('h3', { text: 'Role Folder Mapping' });
+		containerEl.createEl('p', { 
+			text: 'Configure which folders in your vault correspond to each ABC role. C is fixed at C/Templates.',
+			cls: 'setting-item-description'
+		});
+
+		const phase0 = this.plugin.settings?.abcsPhase0;
+		if (phase0) {
+			const prof = phase0.profiles.find((p: any) => p.id === phase0.activeProfile) || phase0.profiles[0];
+
+			// Info: C/Templates is fixed
+			new Setting(containerEl)
+				.setDesc('Templates folder location (fixed, cannot be changed)')
+				.addText(text => text
+					.setValue('C/Templates')
+					.setDisabled(true));
+
+			// E (Archive) - Single folder (read-only, hardcoded in the plugin)
+			new Setting(containerEl)
+				.setName('E (Archive)')
+				.setDesc('Archive folder location (fixed, cannot be changed)')
+				.addText(text => text
+					.setValue('E/Archive')
+					.setDisabled(true));
+
+			// A Folders - Multi-line textarea
+			new Setting(containerEl)
+				.setName('A Folders (Permanent Notes)')
+				.setDesc('One folder path per line. Examples: A, Permanent, Reference')
+				.addTextArea(text => {
+					const currentA = prof?.roles?.A || ['A'];
+					text
+						.setPlaceholder('A\nPermanent\nReference')
+						.setValue(currentA.join('\n'))
+						.onChange(async (value) => {
+							const lines = value.split('\n')
+								.map(l => l.trim())
+								.filter(l => l.length > 0);
+							if (!phase0.profiles) return;
+							const profEdit = phase0.profiles.find((x: any) => x.id === phase0.activeProfile) || phase0.profiles[0];
+							if (profEdit) {
+								profEdit.roles.A = lines.length > 0 ? lines : ['A'];
+								await this.plugin.saveSettings();
+								new Notice('A folders updated. Reload plugin to apply.');
+							}
+						});
+					text.inputEl.rows = 4;
+					text.inputEl.style.width = '100%';
+				});
+
+			// B Folders - Multi-line textarea
+			new Setting(containerEl)
+				.setName('B Folders (Literature Notes)')
+				.setDesc('One folder path per line. Examples: B, Literature, Meetings')
+				.addTextArea(text => {
+					const currentB = prof?.roles?.B || ['B'];
+					text
+						.setPlaceholder('B\nLiterature\nMeetings')
+						.setValue(currentB.join('\n'))
+						.onChange(async (value) => {
+							const lines = value.split('\n')
+								.map(l => l.trim())
+								.filter(l => l.length > 0);
+							if (!phase0.profiles) return;
+							const profEdit = phase0.profiles.find((x: any) => x.id === phase0.activeProfile) || phase0.profiles[0];
+							if (profEdit) {
+								profEdit.roles.B = lines.length > 0 ? lines : ['B'];
+								await this.plugin.saveSettings();
+								new Notice('B folders updated. Reload plugin to apply.');
+							}
+						});
+					text.inputEl.rows = 4;
+					text.inputEl.style.width = '100%';
+				});
+
+			// D Folder - Read-only root for active work
+			new Setting(containerEl)
+				.setName('D Folder (Projects/Active Work)')
+				.setDesc('The root folder for active work. Sub-folders (e.g., Projects, Exams) are managed by the pipelines below.')
+				.addText(text => {
+					text
+						.setValue('D/')
+						.setDisabled(true);
+				});
+		}
+
 		// ---- Read-only Phase 0 info (verification aid) ----
-			const phase0 = this.plugin.settings?.abcsPhase0;
-			if (phase0) {
-			
+		containerEl.createEl('h3', { text: 'Diagnostics (Read-Only)' });
+		if (phase0) {
 			const prof = phase0.profiles.find((p: any) => p.id === phase0.activeProfile) || phase0.profiles[0];
 			const box = containerEl.createDiv({ cls: 'abcs-phase0-box' });
 
@@ -65,96 +152,189 @@ export class ABCsSettingTab extends PluginSettingTab {
 			const rolesDetails = box.createEl('details', { attr: { open: '' } });
 			rolesDetails.createEl('summary', { text: 'Roles mapping' });
 			const rolesList = rolesDetails.createEl('ul');
-			(['A','B','C','D','E'] as const).forEach((r) => {
-				const li = rolesList.createEl('li');
-				const arr = (prof?.roles?.[r] || []);
-				li.setText(`${r}: ${arr.length ? arr.join(', ') : '—'}`);
+			// Display role mappings
+			const roleA = prof?.roles?.A || [];
+			rolesList.createEl('li').setText(`A: ${roleA.length ? roleA.join(', ') : '—'}`);
+			
+			const roleB = prof?.roles?.B || [];
+			rolesList.createEl('li').setText(`B: ${roleB.length ? roleB.join(', ') : '—'}`);
+			
+			// C is hardcoded
+			rolesList.createEl('li').setText('C: C/Templates (fixed)');
+			
+			const roleD = prof?.roles?.D || [];
+			rolesList.createEl('li').setText(`D: ${roleD.length ? roleD.join(', ') : '—'}`);
+			
+			const roleE = prof?.roles?.E || '';
+			// Handle backward compatibility for E
+			if (Array.isArray(roleE)) {
+				rolesList.createEl('li').setText(`E: ${roleE.length ? roleE.join(', ') : '—'}`);
+			} else {
+				rolesList.createEl('li').setText(`E: ${roleE || '—'}`);
+			}
+
+			// ===== Pipeline Management Section =====
+			containerEl.createEl('h3', { text: 'Pipeline Configuration' });
+			containerEl.createEl('p', { 
+				text: 'Pipelines define how content flows from templates to target files. Configure template prefixes and target path patterns.',
+				cls: 'setting-item-description'
 			});
 
-			// Pipelines
-			const pipesDetails = box.createEl('details', { attr: { open: '' } });
-			pipesDetails.createEl('summary', { text: 'Pipelines' });
-			(prof?.pipelines || []).forEach((p: any) => {
-				const card = pipesDetails.createEl('div', { cls: 'abcs-pipeline-card' });
-				card.createEl('div', { text: `• ${p.label} (id=${p.id})` });
-				card.createEl('div', { text: `  templatePrefix: ${p.templatePrefix}` });
-				card.createEl('div', { text: `  targetPath: ${p.targetPath}` });
-				card.createEl('div', { text: `  sources.roles: ${(p.sources?.roles || []).join(', ')}` });
-				const s = p.search || prof?.defaults?.search;
-				if (s) card.createEl('div', { text: `  includeArchive: ${String(s.includeArchive)}` });
-				// Editable toggle: Include Archive Folder Notes (default for this pipeline)
-				new Setting(card)
-				.setName('Include Archive Folder Notes')
-				.setDesc('Default for this pipeline. The modal checkbox will start with this value.')
-				.addToggle(t => {
-				const prof2 = phase0.profiles.find((p2: any) => p2.id === phase0.activeProfile) || phase0.profiles[0];
-				const pipe2 = (prof2?.pipelines || []).find((x: any) => x.id === p.id);
-				const current = Boolean(pipe2?.search?.includeArchive);
-				t.setValue(current);
-				t.onChange(async (val) => {
-					const pPlugin = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
-					if (!pPlugin?.settings?.abcsPhase0) return;
-					const s0 = pPlugin.settings.abcsPhase0;
-					const profEdit = s0.profiles.find((x: any) => x.id === s0.activeProfile) || s0.profiles[0];
-					const pipeEdit = (profEdit?.pipelines || []).find((x: any) => x.id === p.id);
-					if (!pipeEdit) return;
-					pipeEdit.search = pipeEdit.search || { includeArchive: false };
-					pipeEdit.search.includeArchive = val;
-					await pPlugin.saveSettings?.();
+			const pipelines = prof?.pipelines || [];
+			
+			// Display each pipeline with edit/delete controls
+			pipelines.forEach((p: any, index: number) => {
+				const pipelineContainer = containerEl.createDiv({ cls: 'abcs-pipeline-container' });
+				
+				// Pipeline header with label and delete button
+				const headerDiv = pipelineContainer.createDiv({ cls: 'abcs-pipeline-header' });
+				headerDiv.createEl('h4', { text: `${p.label || p.id}`, cls: 'abcs-pipeline-title' });
+				
+				// Delete button (only for non-default pipelines or if user wants to remove defaults)
+				const deleteBtn = headerDiv.createEl('button', { 
+					text: '🗑️ Delete',
+					cls: 'mod-warning'
 				});
-			});
-					// Editable: templatePrefix
-					new Setting(card)
+				deleteBtn.onclick = async () => {
+					const { confirmModal } = await import('./utils');
+					const confirmed = await confirmModal(
+						this.app,
+						'Delete Pipeline',
+						`Delete pipeline "${p.label}"? This cannot be undone.`,
+						'Delete',
+						'Cancel'
+					);
+					
+					if (!confirmed) return;
+					
+					const prof2 = phase0.profiles.find((p2: any) => p2.id === phase0.activeProfile) || phase0.profiles[0];
+					if (prof2?.pipelines) {
+						prof2.pipelines.splice(index, 1);
+						await this.plugin.saveSettings();
+						new Notice(`Pipeline "${p.label}" deleted. Reload plugin to apply.`);
+						this.display(); // Refresh settings UI
+					}
+				};
+
+				// Pipeline ID (read-only for reference)
+				new Setting(pipelineContainer)
+					.setName('Pipeline ID')
+					.setDesc('Unique identifier (auto-generated for new pipelines)')
+					.addText(t => {
+						t.setValue(p.id);
+						t.setDisabled(true);
+					});
+
+				// Label
+				new Setting(pipelineContainer)
+					.setName('Label')
+					.setDesc('Display name for this pipeline')
+					.addText(t => {
+						t.setPlaceholder('My Custom Pipeline');
+						t.setValue(p.label || '');
+						t.onChange(async (val) => {
+							const prof2 = phase0.profiles.find((p2: any) => p2.id === phase0.activeProfile) || phase0.profiles[0];
+							const pipe2 = (prof2?.pipelines || [])[index];
+							if (pipe2) {
+								pipe2.label = val.trim();
+								await this.plugin.saveSettings();
+							}
+						});
+					});
+
+				// Template Prefix
+				new Setting(pipelineContainer)
 					.setName('Template Prefix')
-					.setDesc('Must match the start of template file names for this pipeline')
+					.setDesc('Template files must start with this prefix (e.g., "Content-to-D-Projects-")')
 					.addText(t => {
-					const prof2 = phase0.profiles.find((p2:any)=>p2.id===phase0.activeProfile) || phase0.profiles[0];
-					const pipe2 = (prof2?.pipelines||[]).find((x:any)=>x.id===p.id);
-					t.setPlaceholder('Content-to-D-Projects-');
-					t.setValue(pipe2?.templatePrefix ?? '');
-					t.onChange(async (val) => {
-						const plug = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
-						const root = plug?.settings?.abcsPhase0; if (!root) return;
-						const profEdit = root.profiles.find((x:any)=>x.id===root.activeProfile) || root.profiles[0];
-						const pipeEdit = (profEdit?.pipelines||[]).find((x:any)=>x.id===p.id);
-						if (!pipeEdit) return;
-						pipeEdit.templatePrefix = val.trim();
-						await plug.saveSettings?.();
-					});
+						t.setPlaceholder('Content-to-D-Projects-');
+						t.setValue(p.templatePrefix || '');
+						t.onChange(async (val) => {
+							const prof2 = phase0.profiles.find((p2: any) => p2.id === phase0.activeProfile) || phase0.profiles[0];
+							const pipe2 = (prof2?.pipelines || [])[index];
+							if (pipe2) {
+								pipe2.templatePrefix = val.trim();
+								await this.plugin.saveSettings();
+							}
+						});
 					});
 
-					// Editable: targetPath
-					new Setting(card)
+				// Target Path Pattern
+				new Setting(pipelineContainer)
 					.setName('Target Path Pattern')
-					.setDesc('Use placeholders like {project} or {exam}, e.g., D/Projects/{project}/Content.md')
+					.setDesc('Use placeholders like {project}, {exam}, {name}, etc. Example: D/Projects/{project}/Content.md')
 					.addText(t => {
-					const prof2 = phase0.profiles.find((p2:any)=>p2.id===phase0.activeProfile) || phase0.profiles[0];
-					const pipe2 = (prof2?.pipelines||[]).find((x:any)=>x.id===p.id);
-					t.setPlaceholder('D/Projects/{project}/Content.md');
-					t.setValue(pipe2?.targetPath ?? '');
-					t.onChange(async (val) => {
-						// basic validation
-						const trimmed = val.trim();
-						if (!trimmed) return;
-
-						// Optional: validate placeholder presence based on pipeline id
-						const needs = p.id === 'content-to-d-projects' ? '{project}' :
-									p.id === 'tips-to-d-exams' ? '{exam}' : null;
-						if (needs && !trimmed.includes(needs)) {
-						new Notice(`Target path should include ${needs} for this pipeline.`);
-						// do not block save, but warn
-						}
-
-						const plug = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
-						const root = plug?.settings?.abcsPhase0; if (!root) return;
-						const profEdit = root.profiles.find((x:any)=>x.id===root.activeProfile) || root.profiles[0];
-						const pipeEdit = (profEdit?.pipelines||[]).find((x:any)=>x.id===p.id);
-						if (!pipeEdit) return;
-						pipeEdit.targetPath = trimmed;
-						await plug.saveSettings?.();
+						t.setPlaceholder('D/Projects/{project}/Content.md');
+						t.setValue(p.targetPath || '');
+						t.onChange(async (val) => {
+							const trimmed = val.trim();
+							if (!trimmed) return;
+							
+							const prof2 = phase0.profiles.find((p2: any) => p2.id === phase0.activeProfile) || phase0.profiles[0];
+							const pipe2 = (prof2?.pipelines || [])[index];
+							if (pipe2) {
+								pipe2.targetPath = trimmed;
+								await this.plugin.saveSettings();
+							}
+						});
 					});
+
+				// Include Archive Folder Notes
+				new Setting(pipelineContainer)
+					.setName('Include Archive Folder Notes')
+					.setDesc('Default setting for including archived notes in search')
+					.addToggle(t => {
+						const current = Boolean(p.search?.includeArchive);
+						t.setValue(current);
+						t.onChange(async (val) => {
+							const prof2 = phase0.profiles.find((p2: any) => p2.id === phase0.activeProfile) || phase0.profiles[0];
+							const pipe2 = (prof2?.pipelines || [])[index];
+							if (pipe2) {
+								pipe2.search = pipe2.search || { includeArchive: false };
+								pipe2.search.includeArchive = val;
+								await this.plugin.saveSettings();
+							}
+						});
 					});
+
+				// Separator
+				pipelineContainer.createEl('hr', { cls: 'abcs-pipeline-separator' });
 			});
+
+			// Add New Pipeline Button
+			const addPipelineBtn = new Setting(containerEl)
+				.setName('Add New Pipeline')
+				.setDesc('Create a custom pipeline with your own prefix and target path')
+				.addButton(btn => {
+					btn.setButtonText('➕ Add Pipeline')
+						.setCta()
+						.onClick(async () => {
+							const prof2 = phase0.profiles.find((p2: any) => p2.id === phase0.activeProfile) || phase0.profiles[0];
+							if (!prof2) return;
+
+							// Generate unique ID
+							const timestamp = Date.now();
+							const newId = `custom-pipeline-${timestamp}`;
+
+							// Create new pipeline with defaults
+							const newPipeline = {
+								id: newId,
+								label: 'New Pipeline',
+								templatePrefix: 'My-Pipeline-',
+								sources: { roles: ['A', 'B'] },
+								targetPath: 'D/Projects/{project}/Notes.md',
+								search: { includeArchive: false },
+								ui: { keepModalOpen: true, resetAfterInsert: true },
+							};
+
+							prof2.pipelines = prof2.pipelines || [];
+							prof2.pipelines.push(newPipeline);
+							
+							await this.plugin.saveSettings();
+							new Notice('New pipeline added! Configure it below.');
+							this.display(); // Refresh settings UI
+						});
+				});
 			
 			// Guidance: how to prepare blueprint templates so insertion works properly
 			const help = containerEl.createEl('div', { cls: 'abcs-phase0-help' });

@@ -20,6 +20,7 @@ export * from './modals/ABCsModal';
 export * from './modals/ColorPickerModal';
 export * from './modals/PromptModal';
 export * from './modals/SuggesterModal';
+export * from './modals/ArchiveProjectsModal';
 
 // Settings
 export * from './settings';

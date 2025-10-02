@@ -502,3 +502,93 @@ If your plugin does not need CSS, delete this file.
     z-index: 1;
   }
 /* ---- End: minimal layout additions ---- */
+
+/* ===== Pipeline Configuration Styles */
+.abcs-pipeline-container {
+    margin: 15px 0;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background-color: var(--background-secondary);
+}
+
+.abcs-phase0-help {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid var(--interactive-accent);
+    border-radius: 6px;
+    background-color: var(--background-secondary);
+}
+
+.abcs-help-details summary {
+    cursor: pointer;
+    font-weight: 600;
+    padding: 5px 0;
+    color: var(--interactive-accent);
+}
+
+.abcs-help-details summary:hover {
+    text-decoration: underline;
+}
+
+.abcs-help-body {
+    margin-top: 10px;
+}
+
+.abcs-help-body pre {
+    padding: 10px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 0.9rem;
+}
+
+/* ===== Archive Projects Modal Styles */
+.archive-description {
+    color: var(--text-muted);
+    margin: 10px 0 20px 0;
+    font-size: 0.95em;
+}
+
+.archive-project-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin: 15px 0;
+    padding: 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 5px;
+}
+
+.archive-project-item {
+    padding: 8px;
+    margin: 5px 0;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.archive-project-item:hover {
+    background: var(--background-secondary);
+}
+
+.archive-project-item input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.archive-project-item label {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    width: 100%;
+}
+
+.archive-project-item .file-count {
+    color: var(--text-muted);
+    font-size: 0.9em;
+    margin-left: 5px;
+}
+
+.archive-projects-button {
+    width: 100%;
+    padding: 10px;
+    text-align: left;
+}

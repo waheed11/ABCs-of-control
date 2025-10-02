@@ -49,7 +49,7 @@ export class ContentToDProjectsHandler {
 		}
 		
 		// Create project selection UI
-		contentEl.createEl('h2', { text: 'Add content to D/Projects' });
+		contentEl.createEl('h2', { text: 'Add Content' });
 		
 		const projectRow = contentEl.createDiv({ cls: 'form-row' });
 		projectRow.createEl('label', { text: 'Project:' });
@@ -121,7 +121,7 @@ export class ContentToDProjectsHandler {
 			return;
 		}
 		
-		projectContainer.createEl('h3', { text: `Add notes to ${projectName}/Content` });
+		projectContainer.createEl('h3', { text: 'Add notes or text for a specific Heading' });
 		
 			
 			// Heading dropdown (auto RTL/LTR per selection)
@@ -147,49 +147,17 @@ export class ContentToDProjectsHandler {
 		// Selections list
 		const selectedList = projectContainer.createDiv({ cls: 'selected-notes' });
 		selectedList.createEl('h3', { text: 'Notes to add' });
-		// Add checkbox for including archive folder notes
-		const archiveCheckboxContainer = contentEl.createDiv({ cls: 'archive-checkbox-container' });
-		const archiveCheckbox = archiveCheckboxContainer.createEl('input', {
-			type: 'checkbox',
-			attr: { id: 'include-archive-notes' }
-		});
-		const archiveLabel = archiveCheckboxContainer.createEl('label', {
-			text: 'Include Archive Folder Notes',
-			attr: { for: 'include-archive-notes' }
-		});
-
-		//let includeArchiveNotes = false; // Default: exclude archive notes
-		
-		// Helper to read/write includeArchive for this pipeline
-		const getPlugin = () => (this.app as any).plugins?.plugins?.['ABCs-of-control'];
-		const getIncludeArchiveDefault = (): boolean => {
-		const p = getPlugin();
-		const s = p?.settings?.abcsPhase0;
-		if (!s) return false; // fallback default
-		const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
-		const pipe = prof?.pipelines?.find((x: any) => x.id === 'content-to-d-projects');
-		return Boolean(pipe?.search?.includeArchive);
-		};
-		const setIncludeArchivePersist = async (value: boolean) => {
-		const p = getPlugin();
-		if (!p?.settings?.abcsPhase0) return;
-		const s = p.settings.abcsPhase0;
-		const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
-		const pipe = prof?.pipelines?.find((x: any) => x.id === 'content-to-d-projects');
-		if (!pipe) return;
-		pipe.search = pipe.search || { includeArchive: false };
-		pipe.search.includeArchive = value;
-		await p.saveSettings?.();
+		// Read "Include Archive" setting from pipeline configuration
+		const getIncludeArchiveFromSettings = (): boolean => {
+			const p = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+			const s = p?.settings?.abcsPhase0;
+			if (!s) return false; // fallback default
+			const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+			const pipe = prof?.pipelines?.find((x: any) => x.id === pipelineId);
+			return Boolean(pipe?.search?.includeArchive);
 		};
 		
-		let includeArchiveNotes = getIncludeArchiveDefault(); // default from settings
-		archiveCheckbox.checked = includeArchiveNotes;
-
-		archiveCheckbox.addEventListener('change', async () => {
-		includeArchiveNotes = archiveCheckbox.checked;
-		await setIncludeArchivePersist(includeArchiveNotes);
-		// search refresh happens in input handler below as before
-		});
+		const includeArchiveNotes = getIncludeArchiveFromSettings();
 		const listEl = selectedList.createEl('ul');
 		const selections: Selection[] = [];
 		
@@ -329,59 +297,7 @@ export class ContentToDProjectsHandler {
 		// Buttons
 		const buttonContainer = projectContainer.createDiv({ cls: 'button-container' });
 
-		// 1) Move to E button (neutral, left)
-		const moveButton = buttonContainer.createEl('button', {
-		text: 'Move to E/Projects',
-		attr: { title: 'Move this project folder to E/Projects' }
-		});
-		moveButton.addEventListener('click', async () => {
-			const confirmed = await confirmModal(
-				this.app,
-				'Move to E/Projects',
-				`Move project "${projectName}" from D/Projects to E/Projects?`,
-				'Move',
-				'Cancel'
-			  );
-			  if (!confirmed) return;
-
-
-		try {
-			const archiveHandler = new ArchiveHandler(this.app);
-			const dest = await archiveHandler.moveProjectOrExam('project', projectName);
-
-			// Move corresponding D template to E/Templates and rename it so it no longer shows under D
-			// Respect the pipeline's current template prefix when locating the template to move
-		const p1 = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
-		const s1 = p1?.settings?.abcsPhase0;
-		const prof1 = s1?.profiles?.find((x:any)=>x.id===s1.activeProfile) || s1?.profiles?.[0];
-		const pipe1 = prof1?.pipelines?.find((x:any)=>x.id===pipelineId);
-		const currentPrefix = pipe1?.templatePrefix || 'Content-to-D-Projects-';
-		const oldTemplatePath = normalizePath(`C/Templates/${currentPrefix}${projectName}.md`);
-			const oldTemplate = this.app.vault.getAbstractFileByPath(oldTemplatePath) as TFile | null;
-			if (oldTemplate) {
-			await ensureFolderExists(this.app, 'E/Templates');
-			// Keep the same filename in E/Templates; resolve conflicts if needed
-			const fileName = oldTemplate.name; // e.g., Content-to-D-Projects-<name>.md
-			let newTemplatePath = normalizePath(`E/Templates/${fileName}`);
-			let counter = 1;
-			while (this.app.vault.getAbstractFileByPath(newTemplatePath)) {
-				const base = fileName.replace(/\.md$/, '');
-				newTemplatePath = normalizePath(`E/Templates/${base} (${counter}).md`);
-				counter++;
-			}
-			await this.app.fileManager.renameFile(oldTemplate, newTemplatePath);
-			}
-
-			new Notice(`✅ Moved to ${dest}`);
-			// Close to refresh UI/lists
-			closeModal();
-		} catch (err) {
-			console.error(err);
-			new Notice('❌ Failed to move project. See console for details.');
-		}
-		});
-
-		// 2) Close (neutral, middle)
+		// Close button
 		const cancelButton = buttonContainer.createEl('button', { text: 'Close' });
 		cancelButton.addEventListener('click', () => closeModal());
 

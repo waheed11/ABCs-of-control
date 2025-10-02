@@ -82,17 +82,18 @@ export interface PipelineConfig {
 	search?: SearchConfig;
 	insertion?: InsertionConfig;
 	ui?: { keepModalOpen: boolean; resetAfterInsert: boolean };
+	operation?: 'insert'; // default: insert for pipeline templates
 }
 
 export interface Profile {
 	id: string;
 	label: string;
 	roles: {
-		A: string[];
-		B: string[];
-		C: string[];
-		D: string[]; // e.g., ['D/Projects','D/Exams']
-		E: string[]; // e.g., ['E/Archive']
+		A: string[]; // multi-folder support
+		B: string[]; // multi-folder support
+		// C is hardcoded to 'C/Templates' - not configurable
+		D: string[]; // multi-folder support, e.g., ['D/Projects','D/Exams']
+		E: string;   // single root folder for archive
 	};
 	classification: {
 		useFrontmatter: boolean;

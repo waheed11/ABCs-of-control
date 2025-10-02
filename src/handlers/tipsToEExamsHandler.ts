@@ -43,7 +43,7 @@ export class TipsToEExamsHandler {
 		}
 		
 		// Create exam selection UI
-		contentEl.createEl('h2', { text: 'Add tips to D/Exams' });
+		contentEl.createEl('h2', { text: 'Add Content' });
 		
 		const examRow = contentEl.createDiv({ cls: 'form-row' });
 		examRow.createEl('label', { text: 'Exam:' });
@@ -109,7 +109,7 @@ export class TipsToEExamsHandler {
 			return;
 		}
 		
-		examContainer.createEl('h3', { text: `Add tips to ${examName}/Tips` });
+		examContainer.createEl('h3', { text: 'Add notes or text for a specific Heading' });
 		
 		// Heading dropdown (auto RTL/LTR per selection)
 		const headingRow = examContainer.createDiv({ cls: 'form-row' });
@@ -134,46 +134,18 @@ export class TipsToEExamsHandler {
 		// Selections list
 		const selectedList = examContainer.createDiv({ cls: 'selected-notes' });
 		selectedList.createEl('h3', { text: 'Tips to add' });
-		// Add checkbox for including archive folder notes
-		const archiveCheckboxContainer = contentEl.createDiv({ cls: 'archive-checkbox-container' });
-		const archiveCheckbox = archiveCheckboxContainer.createEl('input', {
-			type: 'checkbox',
-			attr: { id: 'include-archive-notes-tips' }  // Different ID from D/Projects
-		});
-		const archiveLabel = archiveCheckboxContainer.createEl('label', {
-			text: 'Include Archive Folder Notes',
-			attr: { for: 'include-archive-notes-tips' }
-		});
-
-		//let includeArchiveNotes = false;
-		const getPlugin = () => (this.app as any).plugins?.plugins?.['ABCs-of-control'];
-		const getIncludeArchiveDefault = (): boolean => {
-		const p = getPlugin();
-		const s = p?.settings?.abcsPhase0;
-		if (!s) return false;
-		const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
-		const pipe = prof?.pipelines?.find((x: any) => x.id === 'tips-to-d-exams');
-		return Boolean(pipe?.search?.includeArchive);
+		
+		// Read "Include Archive" setting from pipeline configuration
+		const getIncludeArchiveFromSettings = (): boolean => {
+			const p = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+			const s = p?.settings?.abcsPhase0;
+			if (!s) return false;
+			const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+			const pipe = prof?.pipelines?.find((x: any) => x.id === pipelineId);
+			return Boolean(pipe?.search?.includeArchive);
 		};
-		const setIncludeArchivePersist = async (value: boolean) => {
-		const p = getPlugin();
-		if (!p?.settings?.abcsPhase0) return;
-		const s = p.settings.abcsPhase0;
-		const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
-		const pipe = prof?.pipelines?.find((x: any) => x.id === 'tips-to-d-exams');
-		if (!pipe) return;
-		pipe.search = pipe.search || { includeArchive: false };
-		pipe.search.includeArchive = value;
-		await p.saveSettings?.();
-		};
-
-		let includeArchiveNotes = getIncludeArchiveDefault();
-		archiveCheckbox.checked = includeArchiveNotes;
-
-		archiveCheckbox.addEventListener('change', async () => {
-		includeArchiveNotes = archiveCheckbox.checked;
-		await setIncludeArchivePersist(includeArchiveNotes);
-		});
+		
+		const includeArchiveNotes = getIncludeArchiveFromSettings();
 
 		const listEl = selectedList.createEl('ul');
 		const selections: Selection[] = [];
@@ -316,50 +288,7 @@ export class TipsToEExamsHandler {
 			// Buttons
 			const buttonContainer = examContainer.createDiv({ cls: 'button-container' });
 
-			// 1) Move to E button (neutral, left)
-			const moveButton = buttonContainer.createEl('button', {
-			text: 'Move to E/Exams',
-			attr: { title: 'Move this exam folder to E/Exams' }
-			});
-			moveButton.addEventListener('click', async () => {
-			const confirmed = await confirmModal(
-				this.app,
-				'Move to E/Exams',
-				`Move exam "${examName}" from D/Exams to E/Exams?`,
-				'Move',
-				'Cancel'
-			);
-			if (!confirmed) return;
-
-			try {
-				const archiveHandler = new ArchiveHandler(this.app);
-				const dest = await archiveHandler.moveProjectOrExam('exam', examName);
-
-				// Move corresponding D exam template to E/Templates, keeping filename
-				const oldTemplatePath = normalizePath(`C/Templates/Tips-to-D-Exams-${examName}.md`);
-				const oldTemplate = this.app.vault.getAbstractFileByPath(oldTemplatePath) as TFile | null;
-				if (oldTemplate) {
-				await ensureFolderExists(this.app, 'E/Templates');
-				const fileName = oldTemplate.name; // e.g., Tips-to-D-Exams-<name>.md
-				let newTemplatePath = normalizePath(`E/Templates/${fileName}`);
-				let counter = 1;
-				while (this.app.vault.getAbstractFileByPath(newTemplatePath)) {
-					const base = fileName.replace(/\\.md$/, '');
-					newTemplatePath = normalizePath(`E/Templates/${base} (${counter}).md`);
-					counter++;
-				}
-				await this.app.fileManager.renameFile(oldTemplate, newTemplatePath);
-				}
-
-				new Notice(`✅ Moved to ${dest}`);
-				closeModal();
-			} catch (err) {
-				console.error(err);
-				new Notice('❌ Failed to move exam. See console for details.');
-			}
-			});
-
-			// 2) Close (neutral, middle)
+			// Close button
 			const closeButton = buttonContainer.createEl('button', { text: 'Close' });
 			closeButton.addEventListener('click', () => closeModal());
 

@@ -6,6 +6,7 @@ import { ContentToDProjectsHandler } from '../handlers/contentToDProjectsHandler
 import { NoteCreationHandler } from '../handlers/noteCreationHandler';
 import { TipsToEExamsHandler } from '../handlers/tipsToEExamsHandler';
 import { ArchiveHandler } from '../handlers/archiveHandler';
+
 export class ABCsModal extends Modal {
 	plugin: any; // Will be properly typed when we refactor the main plugin
 	templateMap: Map<string, TFile[]> = new Map();
@@ -33,8 +34,8 @@ export class ABCsModal extends Modal {
         // Add title
         contentEl.createEl('h2', { text: 'ABCs of Control' });
         
-        // Load template files
-        this.templateMap = await getTemplateFiles(this.app, this.plugin.settings.templateFolderPath);
+        // Load template files from configurable templates folder
+        this.templateMap = await getTemplateFiles(this.app);
         
         // Create ABCs UI based on the wireframe
         const abcContainer = contentEl.createDiv({ cls: 'abc-container' });
@@ -137,6 +138,17 @@ export class ABCsModal extends Modal {
                 await this.archiveHandler.archiveTaggedNotes();
             });
 
+            const projectsItem = templateList.createEl('li');
+            const projectsButton = projectsItem.createEl('button', { 
+                text: '📁 Archive Projects/Exams',
+                cls: 'archive-projects-button'
+            });
+            projectsButton.addEventListener('click', async () => {
+                const { ArchiveProjectsModal } = await import('./ArchiveProjectsModal');
+                const modal = new ArchiveProjectsModal(this.app);
+                modal.open();
+            });
+
             const settingsItem = templateList.createEl('li');
             const settingsButton = settingsItem.createEl('button', { 
                 text: '⚙️ Archive Settings',
@@ -179,16 +191,14 @@ export class ABCsModal extends Modal {
                 
                 // Check if template matches a pipeline (insert operation)
                 const pipelineId = this.resolvePipelineIdForTemplate(template);
-                if (pipelineId === 'content-to-d-projects') {
+                if (pipelineId) {
+                    // Use existing ContentToDProjectsHandler for ALL pipelines
+                    // It already supports dynamic pipeline configuration via pipelineId
                     await this.handleContentToDProjects(template, pipelineId);
                     return;
                 }
-                if (pipelineId === 'tips-to-d-exams') {
-                    await this.handleTipsToEExams(template, pipelineId);
-                    return;
-                }
                 
-                // Default: create note from template
+                // Default: create note from template (for non-pipeline templates)
                 this.promptForNoteCreation();
             });
         }

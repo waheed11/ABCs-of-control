@@ -5,6 +5,7 @@ import { ABCsModal } from './modals/ABCsModal';
 import { ABCsSettingTab } from './settings';
 import { HighlightHandler } from './handlers/highlightHandler';
 import { QuoteHandler } from './handlers/quoteHandler';
+import { ensureFolderExists } from './utils';
 
 export default class ABCsOfControlPlugin extends Plugin {
 	settings: MyPluginSettings;
@@ -14,6 +15,7 @@ export default class ABCsOfControlPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		this.ensurePhase0Defaults();
+		await this.ensureRequiredFolders();
 		await this.saveSettings();
 		
 		// Initialize handlers
@@ -91,24 +93,22 @@ export default class ABCsOfControlPlugin extends Plugin {
 		const defaultSettings: SettingsRoot = {
 			activeProfile: defaultProfileId,
 			version: 1,
-			safety: { dryRun: true, confirmMoves: true },
+			safety: { dryRun: false, confirmMoves: true },
 			profiles: [
 				{
 					id: defaultProfileId,
 					label: 'Default',
 					roles: {
-						A: ['A/'],
-						B: ['B/'],
-						C: ['C/'],
+						A: ['A'],
+						B: ['B'],
 						D: ['D/Projects', 'D/Exams'],
-						E: ['E/Archive'],
+						E: 'E/Archive',
 					},
 					classification: {
 						useFrontmatter: true,
 						useTags: true,
 						frontmatterKey: 'abcs.letter',
 						tagMap: {
-							'#A': 'A',
 							'#B': 'B',
 							'#C': 'C',
 							'#D': 'D',
@@ -152,5 +152,13 @@ export default class ABCsOfControlPlugin extends Plugin {
 		};
 
 		this.settings.abcsPhase0 = defaultSettings;
-		}
 	}
+
+	/**
+	 * Ensure mandatory C/Templates folder exists (hardcoded location)
+	 */
+	private async ensureRequiredFolders() {
+		// Always create C/Templates regardless of settings
+		await ensureFolderExists(this.app, 'C/Templates');
+	}
+}
