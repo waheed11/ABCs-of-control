@@ -245,9 +245,9 @@ export class ABCsSettingTab extends PluginSettingTab {
 				// Template Prefix
 				new Setting(pipelineContainer)
 					.setName('Template Prefix')
-					.setDesc('Template files must start with this prefix (e.g., "Content-to-D-Projects-")')
+					.setDesc('Template prefix for this pipeline. Path comes from template name. Example: "Content-to-" matches "Content-to-D-Projects-WebDev"')
 					.addText(t => {
-						t.setPlaceholder('Content-to-D-Projects-');
+						t.setPlaceholder('Content-to-');
 						t.setValue(p.templatePrefix || '');
 						t.onChange(async (val) => {
 							const prof2 = phase0.profiles.find((p2: any) => p2.id === phase0.activeProfile) || phase0.profiles[0];

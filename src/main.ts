@@ -130,7 +130,7 @@ export default class ABCsOfControlPlugin extends Plugin {
 						{
 							id: 'content-to-d-projects',
 							label: 'Content to D/Projects',
-							templatePrefix: 'Content-to-D-Projects-',
+							templatePrefix: 'Content-to-',
 							sources: { roles: ['A', 'B'] },
 							targetPath: 'D/Projects/{project}/Content.md',
 							search: { includeArchive: false },
@@ -139,7 +139,7 @@ export default class ABCsOfControlPlugin extends Plugin {
 						{
 							id: 'tips-to-d-exams',
 							label: 'Tips to D/Exams',
-							templatePrefix: 'Tips-to-D-Exams-',
+							templatePrefix: 'Tips-to-',
 							sources: { roles: ['A', 'B'] },
 							targetPath: 'D/Exams/{exam}/Tips.md',
 							search: { includeArchive: false },

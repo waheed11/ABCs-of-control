@@ -218,18 +218,18 @@ export class ArchiveProjectsModal extends Modal {
     }
 
     private async moveAssociatedTemplate(entityName: string) {
-        // Common template patterns
-        const patterns = [
-            `Content-to-D-Projects-${entityName}.md`,
-            `Tips-to-D-Exams-${entityName}.md`,
-            `MPipeline-${entityName}.md`
-        ];
+        // Search for any template file that contains the entity name
+        const templatesFolder = this.app.vault.getAbstractFileByPath('C/Templates');
+        if (!templatesFolder || !(templatesFolder instanceof TFolder)) return;
 
-        for (const pattern of patterns) {
-            const templatePath = normalizePath(`C/Templates/${pattern}`);
-            const template = this.app.vault.getAbstractFileByPath(templatePath);
-            
-            if (template && template instanceof TFile) {
+        const allTemplates = templatesFolder.children.filter(f => 
+            f instanceof TFile && 
+            f.extension === 'md' &&
+            f.basename.includes(entityName)
+        ) as TFile[];
+
+        for (const template of allTemplates) {
+            if (template instanceof TFile) {
                 await ensureFolderExists(this.app, 'E/Templates');
                 
                 let destPath = normalizePath(`E/Templates/${template.name}`);
