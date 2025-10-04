@@ -1,7 +1,7 @@
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import * as path from 'path';
 import { HeadingMeta, Selection } from '../types';
-import { ensureFolderExists, confirmModal, parseSection, compareSection, detectArabicContent, getPipelineTargetPath  } from '../utils';
+import { ensureFolderExists, confirmModal, parseSection, compareSection, detectArabicContent, parseInsertionTemplateName  } from '../utils';
 import { ArchiveHandler } from './archiveHandler';
 
 export class TipsToEExamsHandler {
@@ -18,26 +18,37 @@ export class TipsToEExamsHandler {
 	async handleTipsToEExams(templates: TFile[], initialTemplate: TFile, contentEl: HTMLElement, closeModal: () => void, pipelineId: string = 'tips-to-d-exams') {
 		contentEl.empty();
 
-		// Extract exam names from all templates
-		const prefix = 'Tips-to-D-Exams-';
-		const exams: { name: string; template: TFile }[] = templates.map(template => ({
-			name: template.basename.startsWith(prefix) 
-				? template.basename.substring(prefix.length)
-				: template.basename,
-			template
-		}));
+		// Get prefix from pipeline configuration
+		const p0 = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+		const s0 = p0?.settings?.abcsPhase0;
+		const prof0 = s0?.profiles?.find((x:any)=>x.id===s0.activeProfile) || s0?.profiles?.[0];
+		const pipe0 = prof0?.pipelines?.find((x:any)=>x.id===pipelineId);
+		const prefix = pipe0?.templatePrefix || 'Tips-to-D-Exams-';
+
+		// Parse templates and extract exam info using new name-based parsing
+		const exams: { name: string; template: TFile; parsedPath: ReturnType<typeof parseInsertionTemplateName> }[] = [];
 		
-		// Sort exams alphabetically
+		for (const template of templates) {
+			const parsed = parseInsertionTemplateName(template.basename, prefix);
+			if (parsed) {
+				exams.push({
+					name: parsed.projectName, // This is the filename (last segment)
+					template,
+					parsedPath: parsed
+				});
+			}
+		}
+		
+		// Sort exams alphabetically by name
 		exams.sort((a, b) => a.name.localeCompare(b.name));
 		
 		// Find initial exam
-		const initialExamName = initialTemplate.basename.startsWith(prefix)
-			? initialTemplate.basename.substring(prefix.length)
-			: initialTemplate.basename;
+		const initialParsed = parseInsertionTemplateName(initialTemplate.basename, prefix);
+		const initialExamName = initialParsed?.projectName || initialTemplate.basename;
 		
 		let currentExam = exams.find(e => e.name === initialExamName) || exams[0];
 		if (!currentExam) {
-			new Notice('No Tips-to-E-Exams templates found.');
+			new Notice('No insertion templates found.');
 			closeModal();
 			return;
 		}
@@ -71,7 +82,8 @@ export class TipsToEExamsHandler {
 				existingContent.remove();
 			}
 			
-			await this.buildExamUI(templateContent, examName, contentEl, closeModal, pipelineId);
+			// Pass the parsed path info to buildExamUI
+			await this.buildExamUI(templateContent, exam.parsedPath!, contentEl, closeModal, pipelineId);
 		};
 		
 		// Exam selection change handler
@@ -86,7 +98,7 @@ export class TipsToEExamsHandler {
 	/**
 	 * Build the exam-specific UI (headings, selections, etc.)
 	 */
-	private async buildExamUI(templateContent: string, examName: string, contentEl: HTMLElement, closeModal: () => void, pipelineId: string) {
+	private async buildExamUI(templateContent: string, parsedPath: { path: string; filename: string; fullPath: string; projectName: string }, contentEl: HTMLElement, closeModal: () => void, pipelineId: string) {
 		const examContainer = contentEl.createDiv({ cls: 'exam-content' });
 		
 		// Parse headings with level and numeric section (e.g., 1.2.3)
@@ -300,14 +312,14 @@ export class TipsToEExamsHandler {
 				return; 
 			}
 			
-			const defaultPattern = `D/Exams/{exam}/Tips.md`;
-			const resolved = getPipelineTargetPath(this.app, pipelineId, { exam: examName });
-			const targetPath = normalizePath((resolved ?? defaultPattern).replace('{exam}', examName));
+			// Use the parsed target path from template name
+			const targetPath = parsedPath.fullPath;
 			await ensureFolderExists(this.app, path.dirname(targetPath));
 			
 			let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
 			if (!targetFile) {
-				targetFile = await this.app.vault.create(targetPath, `# Tips\n`);
+				// Create the target file with the exam name as heading
+				targetFile = await this.app.vault.create(targetPath, `# ${parsedPath.filename}\n`);
 			}
 			
 			let content = await this.app.vault.read(targetFile);
@@ -411,7 +423,7 @@ export class TipsToEExamsHandler {
 			textArea.value = '';
 
 			// Show success feedback and keep modal open for more additions
-			new Notice(`✅ Tips added to ${examName}! You can now switch exams or add more tips.`);
+			new Notice(`✅ Tips added to ${parsedPath.projectName}! You can now switch exams or add more tips.`);
 		});
 	}
 	private filterNotes(notes: TFile[], includeArchive: boolean = false): TFile[] {

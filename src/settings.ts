@@ -259,25 +259,15 @@ export class ABCsSettingTab extends PluginSettingTab {
 						});
 					});
 
-				// Target Path Pattern
-				new Setting(pipelineContainer)
-					.setName('Target Path Pattern')
-					.setDesc('Use placeholders like {project}, {exam}, {name}, etc. Example: D/Projects/{project}/Content.md')
-					.addText(t => {
-						t.setPlaceholder('D/Projects/{project}/Content.md');
-						t.setValue(p.targetPath || '');
-						t.onChange(async (val) => {
-							const trimmed = val.trim();
-							if (!trimmed) return;
-							
-							const prof2 = phase0.profiles.find((p2: any) => p2.id === phase0.activeProfile) || phase0.profiles[0];
-							const pipe2 = (prof2?.pipelines || [])[index];
-							if (pipe2) {
-								pipe2.targetPath = trimmed;
-								await this.plugin.saveSettings();
-							}
-						});
-					});
+							// Target Path Pattern (Read-Only)
+			new Setting(pipelineContainer)
+			.setName('Target Path Pattern (Not Used)')
+			.setDesc('⚠️ This field is no longer used. File paths are now determined by template names in C/Templates. Format: "{prefix}-{folder}-{subfolder}-{filename}"')
+			.addText(t => {
+				t.setPlaceholder('Path from template name');
+				t.setValue(p.targetPath || '');
+				t.setDisabled(true);
+			});
 
 				// Include Archive Folder Notes
 				new Setting(pipelineContainer)

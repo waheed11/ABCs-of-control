@@ -350,6 +350,51 @@ export function getTemplatesFolder(app: App): string {
 }
 
 /**
+ * Parse insertion template name to extract target path and filename
+ * Format: {prefix}-{path-segments}-{filename}
+ * Example: 'Content-to-D-YouTube Channel-Breaking Bad Habits'
+ * Returns: { path: 'D/YouTube Channel', filename: 'Breaking Bad Habits', fullPath: 'D/YouTube Channel/Breaking Bad Habits.md' }
+ */
+export function parseInsertionTemplateName(templateName: string, prefix: string): { 
+	path: string; 
+	filename: string; 
+	fullPath: string;
+	projectName: string; // alias for filename, for backward compatibility
+} | null {
+	if (!templateName.startsWith(prefix)) {
+		return null;
+	}
+	
+	// Remove prefix
+	const withoutPrefix = templateName.substring(prefix.length);
+	
+	// Split by dashes to get path segments
+	const segments = withoutPrefix.split('-').map(s => s.trim()).filter(s => s.length > 0);
+	
+	if (segments.length < 2) {
+		// Need at least: letter and filename
+		return null;
+	}
+	
+	// Last segment is the filename
+	const filename = segments[segments.length - 1];
+	
+	// All previous segments form the path (joined with '/')
+	const pathSegments = segments.slice(0, -1);
+	const path = pathSegments.join('/');
+	
+	// Build full path with .md extension
+	const fullPath = normalizePath(`${path}/${filename}.md`);
+	
+	return {
+		path,
+		filename,
+		fullPath,
+		projectName: filename // alias for dropdown display
+	};
+}
+
+/**
  * Check if a path is under a given root folder
  */
 export function isPathUnder(targetPath: string, rootFolder: string): boolean {

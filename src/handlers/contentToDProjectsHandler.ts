@@ -2,7 +2,7 @@ import { ArchiveHandler } from './archiveHandler';
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import * as path from 'path';
 import { HeadingMeta, Selection } from '../types';
-import { ensureFolderExists, parseSection, compareSection, detectArabicContent, confirmModal, getPipelineTargetPath  } from '../utils';
+import { ensureFolderExists, parseSection, compareSection, detectArabicContent, confirmModal, parseInsertionTemplateName  } from '../utils';
 
 export class ContentToDProjectsHandler {
 	private app: App;
@@ -18,32 +18,37 @@ export class ContentToDProjectsHandler {
 	async handleContentToDProjects(templates: TFile[], initialTemplate: TFile, contentEl: HTMLElement, closeModal: () => void, pipelineId: string = 'content-to-d-projects') {
 		contentEl.empty();
 
-		// Extract project names from all templates
-		// Read dynamic prefix from Phase 0 using the provided pipelineId
+		// Get prefix from pipeline configuration
 		const p0 = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
 		const s0 = p0?.settings?.abcsPhase0;
 		const prof0 = s0?.profiles?.find((x:any)=>x.id===s0.activeProfile) || s0?.profiles?.[0];
 		const pipe0 = prof0?.pipelines?.find((x:any)=>x.id===pipelineId);
 		const prefix = pipe0?.templatePrefix || 'Content-to-D-Projects-';
 
-		const projects: { name: string; template: TFile }[] = templates.map(template => ({
-		name: template.basename.startsWith(prefix)
-			? template.basename.substring(prefix.length)
-			: template.basename,
-		template
-		}));
+		// Parse templates and extract project info using new name-based parsing
+		const projects: { name: string; template: TFile; parsedPath: ReturnType<typeof parseInsertionTemplateName> }[] = [];
 		
-		// Sort projects alphabetically
+		for (const template of templates) {
+			const parsed = parseInsertionTemplateName(template.basename, prefix);
+			if (parsed) {
+				projects.push({
+					name: parsed.projectName, // This is the filename (last segment)
+					template,
+					parsedPath: parsed
+				});
+			}
+		}
+		
+		// Sort projects alphabetically by name
 		projects.sort((a, b) => a.name.localeCompare(b.name));
 		
 		// Find initial project
-		const initialProjectName = initialTemplate.basename.startsWith(prefix)
-		? initialTemplate.basename.substring(prefix.length)
-		: initialTemplate.basename;
+		const initialParsed = parseInsertionTemplateName(initialTemplate.basename, prefix);
+		const initialProjectName = initialParsed?.projectName || initialTemplate.basename;
 		
 		let currentProject = projects.find(p => p.name === initialProjectName) || projects[0];
 		if (!currentProject) {
-			new Notice('No Content-to-D-Projects templates found.');
+			new Notice('No insertion templates found.');
 			closeModal();
 			return;
 		}
@@ -77,7 +82,8 @@ export class ContentToDProjectsHandler {
 				existingContent.remove();
 			}
 			
-			await this.buildProjectUI(templateContent, projectName, contentEl, closeModal, pipelineId);
+			// Pass the parsed path info to buildProjectUI
+			await this.buildProjectUI(templateContent, project.parsedPath!, contentEl, closeModal, pipelineId);
 		};
 		
 		// Project selection change handler
@@ -94,7 +100,7 @@ export class ContentToDProjectsHandler {
      */
 	private async buildProjectUI(
 		templateContent: string,
-		projectName: string,
+		parsedPath: { path: string; filename: string; fullPath: string; projectName: string },
 		contentEl: HTMLElement,
 		closeModal: () => void,
 		pipelineId: string
@@ -309,14 +315,14 @@ export class ContentToDProjectsHandler {
 			return; 
 		}
 
-		const defaultPattern = `D/Projects/{project}/Content.md`;
-		const resolved = getPipelineTargetPath(this.app, pipelineId, { project: projectName });
-		const targetPath = normalizePath((resolved ?? defaultPattern).replace('{project}', projectName));
+		// Use the parsed target path from template name
+		const targetPath = parsedPath.fullPath;
 		await ensureFolderExists(this.app, path.dirname(targetPath));
 
 		let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
 		if (!targetFile) {
-			targetFile = await this.app.vault.create(targetPath, `# Content\n`);
+			// Create the target file with the project name as heading
+			targetFile = await this.app.vault.create(targetPath, `# ${parsedPath.filename}\n`);
 		}
 			
 			let content = await this.app.vault.read(targetFile);
@@ -420,8 +426,7 @@ export class ContentToDProjectsHandler {
 			textArea.value = '';
 
 			// Show success feedback and keep modal open for more additions
-
-			new Notice(`✅ Content added to ${projectName}! You can now switch projects or add more content.`);
+			new Notice(`✅ Content added to ${parsedPath.projectName}! You can now switch projects or add more content.`);
 		});
 		}		
 		private filterNotes(notes: TFile[], includeArchive: boolean = false): TFile[] {
