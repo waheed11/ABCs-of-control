@@ -345,6 +345,25 @@ export class ABCsSettingTab extends PluginSettingTab {
 			// Final tip
 			const tip = body.createEl('p');
 			tip.createEl('em', { text: 'Tip: You can customize pipelines and their prefixes in the Pipeline Configuration section above. Each pipeline can have its own prefix and target path pattern.' });
-			}		
+
+			// ===== Support links =====
+			const support = containerEl.createDiv({ cls: 'abcs-support-settings' });
+			support.createEl('h3', { text: 'Support' });
+			const supportP = support.createEl('p');
+			supportP.appendText('If this plugin helps you, you can support development via ');
+			const sponsorLink = supportP.createEl('a', { text: 'GitHub Sponsors' });
+			sponsorLink.setAttr('href', 'https://github.com/sponsors/waheed11');
+			sponsorLink.setAttr('target', '_blank');
+			sponsorLink.setAttr('rel', 'noopener');
+			supportP.appendText(' or ');
+			const coffeeLink = supportP.createEl('a', { text: 'Buy Me a Coffee' });
+			coffeeLink.setAttr('href', 'https://buymeacoffee.com/waheed11');
+			coffeeLink.setAttr('target', '_blank');
+			coffeeLink.setAttr('rel', 'noopener');
+			supportP.appendText('.');
+
+		}
+
 	}
+
 }

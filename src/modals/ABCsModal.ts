@@ -57,6 +57,21 @@ export class ABCsModal extends Modal {
         window.addEventListener('resize', this.resizeHandler);
         // Add container for template list
         contentEl.createDiv({ cls: 'template-list-container' });
+
+        // Support footer (unobtrusive)
+        const footer = contentEl.createDiv({ cls: 'abcs-support-footer' });
+        footer.style.marginTop = '8px';
+        footer.style.opacity = '0.8';
+        const label = footer.createEl('span', { text: 'Support: ' });
+        const sponsors = footer.createEl('a', { text: 'GitHub Sponsors' });
+        sponsors.setAttr('href', 'https://github.com/sponsors/waheed11');
+        sponsors.setAttr('target', '_blank');
+        sponsors.setAttr('rel', 'noopener');
+        footer.createEl('span', { text: ' · ' });
+        const coffee = footer.createEl('a', { text: 'Buy Me a Coffee' });
+        coffee.setAttr('href', 'https://buymeacoffee.com/waheed11');
+        coffee.setAttr('target', '_blank');
+        coffee.setAttr('rel', 'noopener');
     }
     onClose() {
         if (this.resizeHandler) {

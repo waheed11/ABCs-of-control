@@ -1,5 +1,8 @@
 # ABCs of Control
 
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-%E2%9D%A4%EF%B8%8F-blue?logo=github)](https://github.com/sponsors/waheed11)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-donate-yellow?logo=buymeacoffee)](https://buymeacoffee.com/waheed11)
+
 A powerful Obsidian plugin that implements the ABCs framework for knowledge management and productivity. Organize your vault into distinct zones (A, B, C, D, E) with intelligent templates, automated workflows, and seamless content insertion.
 
 ## ✨ Features
@@ -225,7 +228,14 @@ MIT License - see LICENSE file for details
 
 Built with the Obsidian Plugin API. Inspired by the ABC method for knowledge organization and productivity.
 
-## 📞 Support
+## ❤️ Support
+
+If this plugin saves you time, consider supporting development:
+
+- GitHub Sponsors: https://github.com/sponsors/waheed11
+- Buy Me a Coffee: https://buymeacoffee.com/waheed11
+
+## 📞 Support & Feedback
 
 - **Issues**: [GitHub Issues](https://github.com/waheed11/ABCs-of-control/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/waheed11/ABCs-of-control/discussions)
