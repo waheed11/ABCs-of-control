@@ -139,41 +139,9 @@ export class ABCsSettingTab extends PluginSettingTab {
 				});
 		}
 
-		// ---- Read-only Phase 0 info (verification aid) ----
-		containerEl.createEl('h3', { text: 'Diagnostics (Read-Only)' });
+		// ===== Pipeline Management Section =====
 		if (phase0) {
 			const prof = phase0.profiles.find((p: any) => p.id === phase0.activeProfile) || phase0.profiles[0];
-			const box = containerEl.createDiv({ cls: 'abcs-phase0-box' });
-
-			box.createEl('div', { text: `Active Profile: ${phase0.activeProfile}${prof?.label ? ` (${prof.label})` : ''}` });
-			box.createEl('div', { text: `Safety: dryRun=${String(phase0.safety?.dryRun)}, confirmMoves=${String(phase0.safety?.confirmMoves)}` });
-
-			// Roles mapping
-			const rolesDetails = box.createEl('details', { attr: { open: '' } });
-			rolesDetails.createEl('summary', { text: 'Roles mapping' });
-			const rolesList = rolesDetails.createEl('ul');
-			// Display role mappings
-			const roleA = prof?.roles?.A || [];
-			rolesList.createEl('li').setText(`A: ${roleA.length ? roleA.join(', ') : '—'}`);
-			
-			const roleB = prof?.roles?.B || [];
-			rolesList.createEl('li').setText(`B: ${roleB.length ? roleB.join(', ') : '—'}`);
-			
-			// C is hardcoded
-			rolesList.createEl('li').setText('C: C/Templates (fixed)');
-			
-			const roleD = prof?.roles?.D || [];
-			rolesList.createEl('li').setText(`D: ${roleD.length ? roleD.join(', ') : '—'}`);
-			
-			const roleE = prof?.roles?.E || '';
-			// Handle backward compatibility for E
-			if (Array.isArray(roleE)) {
-				rolesList.createEl('li').setText(`E: ${roleE.length ? roleE.join(', ') : '—'}`);
-			} else {
-				rolesList.createEl('li').setText(`E: ${roleE || '—'}`);
-			}
-
-			// ===== Pipeline Management Section =====
 			containerEl.createEl('h3', { text: 'Pipeline Configuration' });
 			containerEl.createEl('p', { 
 				text: 'Pipelines define how content flows from templates to target files. Configure template prefixes and target path patterns.',
@@ -326,46 +294,57 @@ export class ABCsSettingTab extends PluginSettingTab {
 						});
 				});
 			
-			// Guidance: how to prepare blueprint templates so insertion works properly
+			// Guidance: How to use template examples
 			const help = containerEl.createEl('div', { cls: 'abcs-phase0-help' });
-			help.createEl('h3', { text: 'How to prepare your blueprint templates' });
+			help.createEl('h3', { text: 'How to Use Template Examples' });
 
 			// Make a collapsible "details" section
 			const details = help.createEl('details', { cls: 'abcs-help-details' });
-			details.createEl('summary', { text: 'Blueprint template instructions' });
+			details.createEl('summary', { text: 'Template Examples Guide' });
 
 			const body = details.createEl('div', { cls: 'abcs-help-body' });
-			body.createEl('p', { text: 'For each pipeline, create a template note that acts as the project blueprint. Use numbered headings to define the project phases and sub-phases. During work, your notes will be inserted under the selected heading in the target file (e.g., D/Projects/{project}/Content.md).' });
+			
+			// Introduction
+			body.createEl('p', { 
+				text: 'The plugin automatically creates example templates in C/Templates/Templates Examples/ to help you get started. Follow these steps to use them:',
+				cls: 'abcs-help-intro'
+			});
 
-			const exampleTitle = body.createEl('p');
-			exampleTitle.createEl('strong', { text: 'Example structure:' });
+			// Step 1
+			const step1 = body.createEl('div', { cls: 'abcs-help-step' });
+			step1.createEl('strong', { text: '1. Copy templates from examples folder' });
+			step1.createEl('p', { text: 'Copy any template from C/Templates/Templates Examples/ and place it in C/Templates/ to activate it.' });
 
-			const pre = body.createEl('pre');
-			const raw = `
-			# 1. Choosing a channel name
-			## 1.1 Search for similar channels to suggest a name
-			# 2. Choosing topics for the channel
-			## 2.1 Identify the target audience
-			## 2.2 Identify the interests of the target audience
-			## 2.3 Identify a list of suggested names
-			# 3. Preparing Programs and Hardware
-			## 3.1 Researching the software and hardware used in the broadcast
-			## 3.2 Purchasing equipment
-			`;
-			pre.setText(raw.split('\n').map(l => l.trimStart()).join('\n').trim());
+			// Step 2
+			const step2 = body.createEl('div', { cls: 'abcs-help-step' });
+			step2.createEl('strong', { text: '2. Understand the two types of templates' });
+			const typesList = step2.createEl('ul');
+			typesList.createEl('li').innerHTML = '<strong>Creation Templates:</strong> Create new notes and save them based on the template name. For example, "A-Inbox-Ideas" will create a new note in A/Inbox/Ideas/ folder (the plugin creates folders automatically if needed).';
+			typesList.createEl('li').innerHTML = '<strong>Insertion Templates:</strong> Insert text and links to vault notes in specific places within target files. The template prefix (default "Content-to-") determines insertion templates. For example, "Content-to-D-YouTube Channel-Build Better Habits" inserts content into "Build Better Habits.md" in D/YouTube Channel/ (created automatically if needed).';
 
-			const rulesTitle = body.createEl('p');
-			rulesTitle.createEl('strong', { text: 'Rules to follow:' });
+			// Step 3
+			const step3 = body.createEl('div', { cls: 'abcs-help-step' });
+			step3.createEl('strong', { text: '3. Creation template structure' });
+			step3.createEl('p', { text: 'Open a creation template example to see how to structure it. Values like {{VALUE:The permanent note}} prompt the user to enter information. Any phrase after "VALUE:" will be displayed as the prompt.' });
 
-			const ul = body.createEl('ul');
-			ul.createEl('li', { text: 'Use numbered headings (e.g., 1, 1.1, 2, 2.1). This defines the order.' });
-			ul.createEl('li', { text: 'Heading text must match exactly when selecting where to insert.' });
-			ul.createEl('li', { text: 'If a selected heading does not exist yet, it will be created in the correct numeric position.' });
-			ul.createEl('li', { text: 'Insertions go directly under the selected heading, stopping before the next heading.' });
-			ul.createEl('li', { text: 'Keep your numbering consistent (use the same digit style throughout the template).' });
+			// Step 4
+			const step4 = body.createEl('div', { cls: 'abcs-help-step' });
+			step4.createEl('strong', { text: '4. Insertion template structure' });
+			step4.createEl('p', { text: 'Open an insertion template example to see how to structure it. Use numbered headings to define project phases and sub-phases. During work, your notes will be inserted under the selected heading in the target file.' });
+			
+			const exampleCode = step4.createEl('pre');
+			exampleCode.setText('# 1 Choosing a channel name\n## 1.1 Search for similar channels\n# 2 Choosing topics for the channel\n## 2.1 Identify target audience');
 
+			// Step 5
+			const step5 = body.createEl('div', { cls: 'abcs-help-step' });
+			step5.createEl('strong', { text: '5. Template naming conventions' });
+			const namingList = step5.createEl('ul');
+			namingList.createEl('li', { text: 'Creation templates: [Letter]-[Folder]-[Subfolder] (e.g., "A-Inbox-Ideas")' });
+			namingList.createEl('li', { text: 'Insertion templates: [Prefix]-[Folder]-[Subfolder]-[Filename] (e.g., "Content-to-D-Projects-MyProject")' });
+
+			// Final tip
 			const tip = body.createEl('p');
-			tip.setText('You can adjust target file paths per pipeline in Phase 0 settings (read-only shown above). The modals use those configured paths when inserting.');
+			tip.createEl('em', { text: 'Tip: You can customize pipelines and their prefixes in the Pipeline Configuration section above. Each pipeline can have its own prefix and target path pattern.' });
 			}		
 	}
 }
