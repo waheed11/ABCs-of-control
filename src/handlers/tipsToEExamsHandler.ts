@@ -19,7 +19,7 @@ export class TipsToEExamsHandler {
 		contentEl.empty();
 
 		// Get prefix from pipeline configuration
-		const p0 = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+		const p0 = (this.app as any).plugins?.plugins?.['abcs-of-control'];
 		const s0 = p0?.settings?.abcsPhase0;
 		const prof0 = s0?.profiles?.find((x:any)=>x.id===s0.activeProfile) || s0?.profiles?.[0];
 		const pipe0 = prof0?.pipelines?.find((x:any)=>x.id===pipelineId);
@@ -149,7 +149,7 @@ export class TipsToEExamsHandler {
 		
 		// Read "Include Archive" setting from pipeline configuration
 		const getIncludeArchiveFromSettings = (): boolean => {
-			const p = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+			const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
 			const s = p?.settings?.abcsPhase0;
 			if (!s) return false;
 			const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];

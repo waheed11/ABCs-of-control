@@ -88,7 +88,7 @@ export class ABCsModal extends Modal {
     }
     // Resolve active Phase 0 pipeline by matching templatePrefix against a clicked template's basename
     private resolvePipelineIdForTemplate(template: TFile): string | null {
-        const p = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+        const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
         const s = p?.settings?.abcsPhase0;
         if (!s) return null;
         const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
@@ -102,7 +102,7 @@ export class ABCsModal extends Modal {
         return null;
     }
     private getActivePipelineById(pipelineId: string): any | null {
-        const p = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+        const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
         const s = p?.settings?.abcsPhase0;
         if (!s) return null;
         const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
@@ -110,7 +110,7 @@ export class ABCsModal extends Modal {
       }
     // Convenience: get a pipeline config by id (useful if you later want more than id)
     private getPipelineById(pipelineId: string): any | null {
-        const p = (this.app as any).plugins?.plugins?.['ABCs-of-control'];
+        const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
         const s = p?.settings?.abcsPhase0;
         if (!s) return null;
         const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];

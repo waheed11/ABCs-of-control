@@ -176,7 +176,7 @@ async function scanCTemplates(app: App, templateMap: Map<string, TFile[]>): Prom
 	}
 	
 	// Read ALL pipeline configurations from Phase 0
-	const p = (app as any).plugins?.plugins?.['ABCs-of-control'];
+	const p = (app as any).plugins?.plugins?.['abcs-of-control'];
 	const s = p?.settings?.abcsPhase0;
 	const allPipelines: Array<{ prefix: string; targetLetter: string }> = [];
 	
@@ -297,7 +297,7 @@ export function buildTargetPath(pattern: string, vars: Record<string, string>): 
 
 // Read pipeline target pattern from Phase 0 and build a concrete path
 export function getPipelineTargetPath(app: App, pipelineId: string, vars: Record<string,string>): string | null {
-	const p = (app as any).plugins?.plugins?.['ABCs-of-control'];
+	const p = (app as any).plugins?.plugins?.['abcs-of-control'];
 	const s = p?.settings?.abcsPhase0;
 	if (!s) return null;
 	const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
@@ -312,7 +312,7 @@ export function getPipelineTargetPath(app: App, pipelineId: string, vars: Record
  * Get the active Phase 0 profile
  */
 export function getPhase0(app: App): Profile | null {
-	const p = (app as any).plugins?.plugins?.['ABCs-of-control'];
+	const p = (app as any).plugins?.plugins?.['abcs-of-control'];
 	const s = p?.settings?.abcsPhase0;
 	if (!s) return null;
 	return s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0] || null;

@@ -48,7 +48,7 @@ Insert content from your vault notes into structured project files:
 
 ### Manual Installation
 1. Download the latest release from [GitHub Releases](https://github.com/waheed11/ABCs-of-control/releases)
-2. Extract `main.js`, `manifest.json`, and `styles.css` to your vault's `.obsidian/plugins/ABCs-of-control/` folder
+2. Extract `main.js`, `manifest.json`, and `styles.css` to your vault's `.obsidian/plugins/abcs-of-control/` folder
 3. Reload Obsidian
 4. Enable "ABCs of Control" in Settings → Community Plugins
 
