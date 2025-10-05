@@ -7,6 +7,7 @@ import { HighlightHandler } from './handlers/highlightHandler';
 import { QuoteHandler } from './handlers/quoteHandler';
 import { ensureFolderExists } from './utils';
 import { createTemplateExamples } from './templateExamples';
+import { registerIcons, ABCS_ICON_ID } from './icons';
 
 export default class ABCsOfControlPlugin extends Plugin {
 	settings: MyPluginSettings;
@@ -23,8 +24,11 @@ export default class ABCsOfControlPlugin extends Plugin {
 		this.highlightHandler = new HighlightHandler(this.app, this.settings);
 		this.quoteHandler = new QuoteHandler(this.app);
 		
+		// Register custom icons (kept separate for cleanliness)
+		registerIcons();
+
 		// Add a ribbon icon
-		this.addRibbonIcon('lucide-a-large-small', 'ABCs of control', (evt: MouseEvent) => {
+		this.addRibbonIcon(ABCS_ICON_ID, 'ABCs of control', (evt: MouseEvent) => {
 			new ABCsModal(this.app, this).open();
 		});
 
@@ -32,6 +36,12 @@ export default class ABCsOfControlPlugin extends Plugin {
 		this.addCommand({
 			id: 'start-abcs-of-control',
 			name: 'Start ABCs of Control',
+			hotkeys: [
+				{
+					modifiers: ['Alt'],
+					key: 'c',
+				},
+			],
 			callback: () => {
 				new ABCsModal(this.app, this).open();
 			}
