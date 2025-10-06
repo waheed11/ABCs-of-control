@@ -85,11 +85,11 @@ If your plugin does not need CSS, delete this file.
 }
 
 .letter-cell:nth-child(1) .letter-bubble {
-    background-color: #e3f128; /* Blue for A */
+    background-color: #e3f128; /* Yellow for A */
 }
 
 .letter-cell:nth-child(2) .letter-bubble {
-    background-color: #4CAF50; /* Green for B */
+    background-color: #3633cb; /* Blue for B */
 }
 
 .middle-row .letter-cell .letter-bubble {
@@ -97,11 +97,11 @@ If your plugin does not need CSS, delete this file.
 }
 
 .bottom-row .letter-cell:nth-child(1) .letter-bubble {
-    background-color: #3633cb; /* Dark gray for D */
+    background-color: #4CAF50; /* Green for D */
 }
 
 .bottom-row .letter-cell:nth-child(2) .letter-bubble {
-    background-color: #282726; /* Yellow for E */
+    background-color: #282726; /* Dark gray for E */
 }
 
 .letter {
