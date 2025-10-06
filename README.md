@@ -58,20 +58,20 @@ Insert content from your vault notes into structured project files:
   <p align="center">
       <img src="assets/modal-insertion-templates.png" width="560" alt="ABCs modal showing insertion templates such as Content-to-D-Projects and Tips-to-E-Exams." />
     </p>
-    <p align="center"><em><strong>Insertion templates.</strong> Use <code>Content-to-…</code> for projects and <code>Tips-to-E-Exams-…</code> for exams to insert notes under numbered headings.</em></p>
+    <p align="center"><em><strong>Insertion templates.</strong> Use <code>Content-to-…</code> or <code>Tips-to-…</code> to insert notes under numbered headings.</em></p>
     
   <p align="center">
       <img src="assets/modal-archive-actions.png" width="560" alt="ABCs modal showing E actions: Archive #archived Notes, Archive Projects/Exams, Archive Settings." />
     </p>
     <p align="center"><em><strong>Archive tools (E).</strong> One-click archiving by tag or by age, with preview and selection controls.</em></p>
     
-    ## 📦 Installation
+  ## 📦 Installation
     
-    ### From Obsidian Community Plugins (Recommended)
-    1. Open Obsidian Settings
-    2. Go to Community Plugins → Browse
-    3. Search for "ABCs of Control"
-    4. Click Install, then Enable
+  ### From Obsidian Community Plugins (Recommended)
+  1. Open Obsidian Settings
+  2. Go to Community Plugins → Browse
+  3. Search for "ABCs of Control"
+  4. Click Install, then Enable
     
     ### Manual Installation
 1. Download the latest release from [GitHub Releases](https://github.com/waheed11/ABCs-of-control/releases)
