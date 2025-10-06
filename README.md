@@ -29,33 +29,55 @@ Insert content from your vault notes into structured project files:
 - **Content-to-D-Projects-[Project Name]**: Organize project content with hierarchical headings
 - **Tips-to-E-Exams-[Exam Name]**: Collect exam preparation materials
 - Supports numbered headings (1, 1.1, 1.1.1) for automatic ordering
-- Smart insertion under selected headings
-
 ### 🚀 Key Capabilities
 
 - **Template Examples Auto-Creation**: 11+ example templates created automatically in `C/Templates/Templates Examples/`
 - **Smart Content Insertion**: Link vault notes and add custom text to target files
-- **Note Search**: Find and insert notes from anywhere in your vault
-- **Archive Management**: Auto-archive notes by age or #archived tag
-- **Multi-Language Support**: English and Arabic with RTL support
-- **Customizable Pipelines**: Configure your own template prefixes and workflows
-- **Text Highlighting**: Context menu for quick highlighting and quote extraction
+  - **Note Search**: Find and insert notes from anywhere in your vault
+  - **Archive Management**: Auto-archive notes by age or #archived tag
+  - **Multi-Language Support**: English and Arabic with RTL support
+  - **Customizable Pipelines**: Configure your own template prefixes and workflows
+  - **Text Highlighting**: Context menu for quick highlighting and quote extraction
+## 📸 Screenshots
 
-## 📦 Installation
-
-### From Obsidian Community Plugins (Recommended)
-1. Open Obsidian Settings
-2. Go to Community Plugins → Browse
-3. Search for "ABCs of Control"
-4. Click Install, then Enable
-
-### Manual Installation
+<p align="center">
+  <img src="assets/vault-structure.png" width="420" alt="ABCs vault structure showing A, B, C/Templates, D (Projects/Exams), and E/Archive with example templates." />
+</p>
+    <p align="center"><em><strong>ABCs folder structure.</strong> Templates live in <code>C/Templates/</code>; Active work in <code>D</code>; Archives in <code>E</code>.</em></p>
+    
+    <p align="center">
+      <img src="assets/modal-a-inbox-ideas.png" width="560" alt="ABCs modal with A highlighted and A-Inbox-Ideas template selected." />
+    </p>
+    <p align="center"><em><strong>Create A notes from templates.</strong> Launch creation templates like <code>A-Inbox-Ideas</code> to quickly capture structured notes.</em></p>
+    
+    <p align="center">
+      <img src="assets/modal-b-books.png" width="560" alt="ABCs modal with B highlighted and B-Books-Book 1 template selected." />
+    </p>
+    <p align="center"><em><strong>Create B literature notes.</strong> Example: <code>B-Books-Book 1</code> for reading notes.</em></p>
+    
+    <p align="center">
+      <img src="assets/modal-insertion-templates.png" width="560" alt="ABCs modal showing insertion templates such as Content-to-D-Projects and Tips-to-E-Exams." />
+    </p>
+    <p align="center"><em><strong>Insertion templates.</strong> Use <code>Content-to-…</code> for projects and <code>Tips-to-E-Exams-…</code> for exams to insert notes under numbered headings.</em></p>
+    
+    <p align="center">
+      <img src="assets/modal-archive-actions.png" width="560" alt="ABCs modal showing E actions: Archive #archived Notes, Archive Projects/Exams, Archive Settings." />
+    </p>
+    <p align="center"><em><strong>Archive tools (E).</strong> One-click archiving by tag or by age, with preview and selection controls.</em></p>
+    
+    ## 📦 Installation
+    
+    ### From Obsidian Community Plugins (Recommended)
+    1. Open Obsidian Settings
+    2. Go to Community Plugins → Browse
+    3. Search for "ABCs of Control"
+    4. Click Install, then Enable
+    
+    ### Manual Installation
 1. Download the latest release from [GitHub Releases](https://github.com/waheed11/ABCs-of-control/releases)
 2. Extract `main.js`, `manifest.json`, and `styles.css` to your vault's `.obsidian/plugins/abcs-of-control/` folder
 3. Reload Obsidian
 4. Enable "ABCs of Control" in Settings → Community Plugins
-
-## 🚀 Getting Started
 
 ### First Run
 On first activation, the plugin automatically:
