@@ -64,7 +64,7 @@ On first activation, the plugin automatically:
 3. Sets up default pipelines for content insertion
 
 ### Using the Plugin
-1. **Open ABCs Modal**: Click the ribbon icon (📝) or use command palette → "Start ABCs of Control"
+1. **Open ABCs Modal**: Click the ABCs logo ribbon icon (A/B/C/D/E) or use command palette → "Start ABCs of Control"
 2. **Browse Templates**: Navigate through letters A, B, C, D, E
 3. **Select a Template**: Click to activate creation or insertion workflow
 
