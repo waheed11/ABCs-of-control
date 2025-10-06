@@ -83,7 +83,7 @@ On first activation, the plugin automatically:
 3. Search and add notes from your vault OR write custom text
 4. Click "Insert" - content appears under the selected heading
 
-**Example**: `Content-to-D-Projects-WebDev` inserts into `D/Projects/WebDev/Content.md`
+**Example**: `Content-to-D-Projects-WebDev-Content` inserts into `D/Projects/WebDev/Content.md`
 
 ### Template Naming Convention
 
@@ -141,7 +141,7 @@ tags:
 {{VALUE:Prompt for user input}}
 ```
 
-**For Insertion Templates** (Content-to-D, Tips-to-E):
+**For Insertion Templates** (Content-to, Tips-to):
 ```markdown
 ---
 type: project
@@ -212,21 +212,13 @@ src/
 └── handlers/            # Feature handlers
 ```
 
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
 ## 📄 License
 
 MIT License - see LICENSE file for details
 
 ## 🙏 Acknowledgments
 
-Built with the Obsidian Plugin API. Inspired by the ABC method for knowledge organization and productivity.
+Built with the Obsidian Plugin API. Inspired by the ABCs method for knowledge organization and productivity.
 
 ## ❤️ Support
 
