@@ -43,24 +43,24 @@ Insert content from your vault notes into structured project files:
 <p align="center">
   <img src="assets/vault-structure.png" width="420" alt="ABCs vault structure showing A, B, C/Templates, D (Projects/Exams), and E/Archive with example templates." />
 </p>
-    <p align="center"><em><strong>ABCs folder structure.</strong> Templates live in <code>C/Templates/</code>; Active work in <code>D</code>; Archives in <code>E</code>.</em></p>
+<p align="center"><em><strong>ABCs folder structure.</strong> Templates live in <code>C/Templates/</code>; Active work in <code>D</code>; Archives in <code>E</code>.</em></p>
     
-    <p align="center">
+<p align="center">
       <img src="assets/modal-a-inbox-ideas.png" width="560" alt="ABCs modal with A highlighted and A-Inbox-Ideas template selected." />
     </p>
     <p align="center"><em><strong>Create A notes from templates.</strong> Launch creation templates like <code>A-Inbox-Ideas</code> to quickly capture structured notes.</em></p>
     
-    <p align="center">
+  <p align="center">
       <img src="assets/modal-b-books.png" width="560" alt="ABCs modal with B highlighted and B-Books-Book 1 template selected." />
     </p>
     <p align="center"><em><strong>Create B literature notes.</strong> Example: <code>B-Books-Book 1</code> for reading notes.</em></p>
     
-    <p align="center">
+  <p align="center">
       <img src="assets/modal-insertion-templates.png" width="560" alt="ABCs modal showing insertion templates such as Content-to-D-Projects and Tips-to-E-Exams." />
     </p>
     <p align="center"><em><strong>Insertion templates.</strong> Use <code>Content-to-…</code> for projects and <code>Tips-to-E-Exams-…</code> for exams to insert notes under numbered headings.</em></p>
     
-    <p align="center">
+  <p align="center">
       <img src="assets/modal-archive-actions.png" width="560" alt="ABCs modal showing E actions: Archive #archived Notes, Archive Projects/Exams, Archive Settings." />
     </p>
     <p align="center"><em><strong>Archive tools (E).</strong> One-click archiving by tag or by age, with preview and selection controls.</em></p>
