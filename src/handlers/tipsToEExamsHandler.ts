@@ -29,6 +29,10 @@ export class TipsToEExamsHandler {
 		const exams: { name: string; template: TFile; parsedPath: ReturnType<typeof parseInsertionTemplateName> }[] = [];
 		
 		for (const template of templates) {
+			// Only include templates located directly under C/Templates (exclude subfolders)
+			if (!template.path.startsWith('C/Templates/')) continue;
+			const relative = template.path.slice('C/Templates/'.length);
+			if (relative.includes('/')) continue;
 			const parsed = parseInsertionTemplateName(template.basename, prefix);
 			if (parsed) {
 				exams.push({
@@ -138,7 +142,6 @@ export class TipsToEExamsHandler {
 			const value = (headingSelect as HTMLSelectElement).value || '';
 			const isArabic = detectArabicContent(value);
 			headingSelect.setAttr('dir', isArabic ? 'rtl' : 'ltr');
-			(headingSelect as HTMLSelectElement).style.textAlign = isArabic ? 'right' : 'left';
 		};
 		applyHeadingDir();
 		headingSelect.addEventListener('change', applyHeadingDir);
@@ -161,6 +164,16 @@ export class TipsToEExamsHandler {
 
 		const listEl = selectedList.createEl('ul');
 		const selections: Selection[] = [];
+
+		// Show only a short preview for long custom text
+		const truncatePreview = (text: string): string => {
+			const firstLine = (text || '').split('\n')[0].trim();
+			const words = firstLine.split(/\s+/).filter(Boolean);
+			const maxWords = 8;
+			const hasMore = words.length > maxWords || text.includes('\n');
+			const preview = words.slice(0, maxWords).join(' ');
+			return hasMore ? `${preview} ........` : firstLine;
+		};
 		
 		const addSelection = (heading: string, link?: string, text?: string) => {
 			if (link) {
@@ -170,7 +183,8 @@ export class TipsToEExamsHandler {
 			} else if (text) {
 				selections.push({ heading, text, type: 'text' });
 				const li = listEl.createEl('li');
-				li.setText(`${heading}: ${text}`);
+				li.setText(`${heading}: ${truncatePreview(text)}`);
+				li.setAttr('title', text);
 			}
 		};
 		
@@ -279,16 +293,16 @@ export class TipsToEExamsHandler {
 		
 		// Text area for custom text input
 		const textAreaRow = examContainer.createDiv({ cls: 'form-row' });
+		textAreaRow.addClass('abcs-stack');
 		textAreaRow.createEl('label', { text: 'Or add custom text:' });
 		const textArea = textAreaRow.createEl('textarea', { 
 			placeholder: 'Enter custom tips to add under the selected heading...',
-			attr: { rows: '3', style: 'width: 100%; margin-top: 5px;' }
+			attr: { rows: '4' }
 		});
+		textArea.addClass('abcs-textarea');
 
-		const addTextButton = textAreaRow.createEl('button', { 
-			text: 'Add Text',
-			attr: { style: 'margin-top: 5px;' }
-		});
+		const addTextButton = textAreaRow.createEl('button', { text: 'Add Text' });
+		addTextButton.addClass('abcs-mt-5');
 		addTextButton.addEventListener('click', () => {
 			const text = textArea.value.trim();
 			if (text) {
@@ -307,6 +321,11 @@ export class TipsToEExamsHandler {
 			// 3) Insert (primary, right)
 			const insertButton = buttonContainer.createEl('button', { text: 'Insert into Tips', cls: 'mod-cta' });
 		insertButton.addEventListener('click', async () => {
+			// Prevent losing typed custom text if user forgot to click "Add Text"
+			if (textArea && textArea.value && textArea.value.trim().length > 0) {
+				new Notice('You have custom text typed. Click "Add Text" to include it before inserting, or clear the field.');
+				return;
+			}
 			if (selections.length === 0) { 
 				new Notice('Add at least one note or text first.'); 
 				return; 
@@ -316,10 +335,13 @@ export class TipsToEExamsHandler {
 			const targetPath = parsedPath.fullPath;
 			await ensureFolderExists(this.app, path.dirname(targetPath));
 			
-			let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
-			if (!targetFile) {
+			const existing = this.app.vault.getAbstractFileByPath(targetPath);
+			let targetFile: TFile;
+			if (!(existing instanceof TFile)) {
 				// Create the target file with the exam name as heading
 				targetFile = await this.app.vault.create(targetPath, `# ${parsedPath.filename}\n`);
+			} else {
+				targetFile = existing;
 			}
 			
 			let content = await this.app.vault.read(targetFile);

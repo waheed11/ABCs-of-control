@@ -29,6 +29,10 @@ export class ContentToDProjectsHandler {
 		const projects: { name: string; template: TFile; parsedPath: ReturnType<typeof parseInsertionTemplateName> }[] = [];
 		
 		for (const template of templates) {
+			// Only include templates located directly under C/Templates (exclude subfolders)
+			if (!template.path.startsWith('C/Templates/')) continue;
+			const relative = template.path.slice('C/Templates/'.length);
+			if (relative.includes('/')) continue;
 			const parsed = parseInsertionTemplateName(template.basename, prefix);
 			if (parsed) {
 				projects.push({
@@ -145,7 +149,6 @@ export class ContentToDProjectsHandler {
 			const value = (headingSelect as HTMLSelectElement).value || '';
 			const isArabic = detectArabicContent(value);
 			headingSelect.setAttr('dir', isArabic ? 'rtl' : 'ltr');
-			(headingSelect as HTMLSelectElement).style.textAlign = isArabic ? 'right' : 'left';
 		};
 		applyHeadingDir();
 		headingSelect.addEventListener('change', applyHeadingDir);
@@ -166,6 +169,16 @@ export class ContentToDProjectsHandler {
 		const includeArchiveNotes = getIncludeArchiveFromSettings();
 		const listEl = selectedList.createEl('ul');
 		const selections: Selection[] = [];
+
+		// Show only a short preview for long custom text
+		const truncatePreview = (text: string): string => {
+			const firstLine = (text || '').split('\n')[0].trim();
+			const words = firstLine.split(/\s+/).filter(Boolean);
+			const maxWords = 8;
+			const hasMore = words.length > maxWords || text.includes('\n');
+			const preview = words.slice(0, maxWords).join(' ');
+			return hasMore ? `${preview} ........` : firstLine;
+		};
 		
 		const addSelection = (heading: string, link?: string, text?: string) => {
 			if (link) {
@@ -175,7 +188,8 @@ export class ContentToDProjectsHandler {
 			} else if (text) {
 				selections.push({ heading, text, type: 'text' });
 				const li = listEl.createEl('li');
-				li.setText(`${heading}: ${text}`);
+				li.setText(`${heading}: ${truncatePreview(text)}`);
+				li.setAttr('title', text);
 			}
 		};
 		
@@ -283,16 +297,16 @@ export class ContentToDProjectsHandler {
 		});
 				// Text area for custom text input
 		const textAreaRow = projectContainer.createDiv({ cls: 'form-row' });
+		textAreaRow.addClass('abcs-stack');
 		textAreaRow.createEl('label', { text: 'Or add custom text:' });
 		const textArea = textAreaRow.createEl('textarea', { 
 			placeholder: 'Enter custom text to add under the selected heading...',
-			attr: { rows: '3', style: 'width: 100%; margin-top: 5px;' }
+			attr: { rows: '4' }
 		});
+		textArea.addClass('abcs-textarea');
 
-		const addTextButton = textAreaRow.createEl('button', { 
-			text: 'Add Text',
-			attr: { style: 'margin-top: 5px;' }
-		});
+		const addTextButton = textAreaRow.createEl('button', { text: 'Add Text' });
+		addTextButton.addClass('abcs-mt-5');
 		addTextButton.addEventListener('click', () => {
 			const text = textArea.value.trim();
 			if (text) {
@@ -310,122 +324,58 @@ export class ContentToDProjectsHandler {
 		// 3) Insert (primary/violet, right)
 		const insertButton = buttonContainer.createEl('button', { text: 'Insert into Content', cls: 'mod-cta' });
 		insertButton.addEventListener('click', async () => {
-		if (selections.length === 0) { 
-			new Notice('Add at least one note or text first.'); 
-			return; 
-		}
-
-		// Use the parsed target path from template name
-		const targetPath = parsedPath.fullPath;
-		await ensureFolderExists(this.app, path.dirname(targetPath));
-
-		let targetFile = this.app.vault.getAbstractFileByPath(targetPath) as TFile | null;
-		if (!targetFile) {
-			// Create the target file with the project name as heading
-			targetFile = await this.app.vault.create(targetPath, `# ${parsedPath.filename}\n`);
-		}
-			
+			if (textArea && textArea.value && textArea.value.trim().length > 0) {
+				new Notice('You have custom text typed. Click "Add Text" to include it before inserting, or clear the field.');
+				return;
+			}
+			if (selections.length === 0) { new Notice('Add at least one note or text first.'); return; }
+			const targetPath = parsedPath.fullPath;
+			await ensureFolderExists(this.app, path.dirname(targetPath));
+			const existing = this.app.vault.getAbstractFileByPath(targetPath);
+			const targetFile = existing instanceof TFile ? existing : await this.app.vault.create(targetPath, `# ${parsedPath.filename}\n`);
 			let content = await this.app.vault.read(targetFile);
 			const lines = content.split('\n');
-			
-			// Use the working ensureHeadingAndAppend function from memories
 			const ensureHeadingAndAppend = (headingText: string, toAppend: string) => {
 				const meta = headingMetaMap[headingText] || { level: 2, section: [] };
-				
 				let targetIndex = -1;
-				
-				// Look for existing heading by exact text match
 				for (let i = 0; i < lines.length; i++) {
 					const line = lines[i];
 					const match = line.match(/^(#+)\s+(.+?)\s*$/);
-					if (match && match[1].length === meta.level && match[2].trim() === headingText) {
-						targetIndex = i;
-						break;
-					}
+					if (match && match[1].length === meta.level && match[2].trim() === headingText) { targetIndex = i; break; }
 				}
-				
-				// If heading doesn't exist, create it in correct numeric position
 				if (targetIndex === -1) {
 					const hashes = '#'.repeat(meta.level);
 					const targetSection = parseSection(headingText);
 					let insertAt = lines.length;
-					
-					// Only try to find position if this heading has a section number
 					if (targetSection.length > 0) {
-						// Find the right position by comparing with existing headings
 						for (let i = 0; i < lines.length; i++) {
 							const line = lines[i];
 							const match = line.match(/^(#+)\s+(.+?)\s*$/);
 							if (match) {
 								const text = match[2].trim();
 								const section = parseSection(text);
-								
-								// If existing heading has section number and target should come before it
-								if (section.length > 0 && compareSection(targetSection, section) < 0) {
-									insertAt = i;
-									break;
-								}
+								if (section.length > 0 && compareSection(targetSection, section) < 0) { insertAt = i; break; }
 							}
 						}
 					}
-					
-					// Insert the heading at the found position
-					if (insertAt >= lines.length) {
-						// Insert at end
-						lines.push('', `${hashes} ${headingText}`, '');
-						targetIndex = lines.length - 2;
-					} else {
-						// Insert at specific position
-						lines.splice(insertAt, 0, '', `${hashes} ${headingText}`, '');
-						targetIndex = insertAt + 1;
-					}
+					if (insertAt >= lines.length) { lines.push('', `${hashes} ${headingText}`, ''); targetIndex = lines.length - 2; }
+					else { lines.splice(insertAt, 0, '', `${hashes} ${headingText}`, ''); targetIndex = insertAt + 1; }
 				}
-				
-				// Find end of this section and insert content
 				let insertAt = targetIndex + 1;
-				
-				// Skip any existing content immediately after the heading (but not subsections)
 				while (insertAt < lines.length) {
 					const line = lines[insertAt];
-					
-					// If we hit a heading, stop here
-					if (line.startsWith('#')) {
-						break;
-					}
-					
-					// If we hit a non-empty content line, skip it
-					if (line.trim() !== '') {
-						insertAt++;
-					} else {
-						// Empty line - this is a good place to insert
-						break;
-					}
+					if (line.startsWith('#')) break;
+					if (line.trim() !== '') insertAt++; else break;
 				}
-				
 				lines.splice(insertAt, 0, toAppend);
 			};
-			
-			// Insert all selections
-			for (const selection of selections) {
-				if (selection.type === 'note' && selection.link) {
-					ensureHeadingAndAppend(selection.heading, `- [[${selection.link}]]`);
-				} else if (selection.type === 'text' && selection.text) {
-					ensureHeadingAndAppend(selection.heading, `- ${selection.text}`);
-				}
+			for (const s of selections) {
+				if (s.type === 'note' && s.link) ensureHeadingAndAppend(s.heading, `- [[${s.link}]]`);
+				else if (s.type === 'text' && s.text) ensureHeadingAndAppend(s.heading, `- ${s.text}`);
 			}
-			
 			await this.app.vault.modify(targetFile, lines.join('\n'));
 			new Notice(`Inserted ${selections.length} item(s) into ${targetPath}`);
-
-			// Clear selections after successful insertion
-			selections.length = 0;
-			listEl.empty();
-
-			// Clear input fields
-			input.value = '';
-			textArea.value = '';
-
-			// Show success feedback and keep modal open for more additions
+			selections.length = 0; listEl.empty(); input.value = ''; textArea.value = '';
 			new Notice(`✅ Content added to ${parsedPath.projectName}! You can now switch projects or add more content.`);
 		});
 		}		

@@ -222,11 +222,11 @@ export class ArchiveProjectsModal extends Modal {
         const templatesFolder = this.app.vault.getAbstractFileByPath('C/Templates');
         if (!templatesFolder || !(templatesFolder instanceof TFolder)) return;
 
-        const allTemplates = templatesFolder.children.filter(f => 
+        const allTemplates = templatesFolder.children.filter((f): f is TFile => 
             f instanceof TFile && 
             f.extension === 'md' &&
             f.basename.includes(entityName)
-        ) as TFile[];
+        );
 
         for (const template of allTemplates) {
             if (template instanceof TFile) {

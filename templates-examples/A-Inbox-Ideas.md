@@ -14,10 +14,8 @@ aliases:
 
 ## When do you expect to use it?
 
-So what is the reason of configure 
 
 ## How to use it?
-
 
 
 ## Other related notes?

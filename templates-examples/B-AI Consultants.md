@@ -1,5 +1,5 @@
 ---
-type: consultant-session
+type: ai-tool
 date: 
 tags:
 - {{VALUE:tags}} 
@@ -49,13 +49,3 @@ aliases:
 (Convert highlights into quotes if needed)
 Use the following citation format:
 {{VALUE:ai tool}}-{{VALUE:ai tool version}}, response to *"{{VALUE:prompt}}"*, {{VALUE:company}}, {{VALUE:date in Month dd, yyyy}}
-
-
-
-# ✒The Permanent Notes
-
-(Each quote must be connected to an existing permanent note, if there no any, create a new permanent note)
-
-
-
-

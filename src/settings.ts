@@ -1,5 +1,4 @@
 import { App, PluginSettingTab, Setting, Notice  } from 'obsidian';
-import { MyPluginSettings } from './types';
 
 export class ABCsSettingTab extends PluginSettingTab {
 	plugin: any; // Will be properly typed when we refactor the main plugin
@@ -99,11 +98,10 @@ export class ABCsSettingTab extends PluginSettingTab {
 								new Notice('A folders updated. Reload plugin to apply.');
 							}
 						});
-					text.inputEl.rows = 4;
-					text.inputEl.style.width = '100%';
+					(text.inputEl as HTMLTextAreaElement).rows = 4;
+					text.inputEl.classList.add('abcs-full-width');
 				});
 
-			// B Folders - Multi-line textarea
 			new Setting(containerEl)
 				.setName('B Folders (Literature Notes)')
 				.setDesc('One folder path per line. Examples: B, Literature, Meetings')
@@ -124,8 +122,8 @@ export class ABCsSettingTab extends PluginSettingTab {
 								new Notice('B folders updated. Reload plugin to apply.');
 							}
 						});
-					text.inputEl.rows = 4;
-					text.inputEl.style.width = '100%';
+					(text.inputEl as HTMLTextAreaElement).rows = 4;
+					text.inputEl.classList.add('abcs-full-width');
 				});
 
 			// D Folder - Read-only root for active work
@@ -319,8 +317,16 @@ export class ABCsSettingTab extends PluginSettingTab {
 			const step2 = body.createEl('div', { cls: 'abcs-help-step' });
 			step2.createEl('strong', { text: '2. Understand the two types of templates' });
 			const typesList = step2.createEl('ul');
-			typesList.createEl('li').innerHTML = '<strong>Creation Templates:</strong> Create new notes and save them based on the template name. For example, "A-Inbox-Ideas" will create a new note in A/Inbox/Ideas/ folder (the plugin creates folders automatically if needed).';
-			typesList.createEl('li').innerHTML = '<strong>Insertion Templates:</strong> Insert text and links to vault notes in specific places within target files. The template prefix (default "Content-to-") determines insertion templates. For example, "Content-to-D-YouTube Channel-Build Better Habits" inserts content into "Build Better Habits.md" in D/YouTube Channel/ (created automatically if needed).';
+			{
+				const li = typesList.createEl('li');
+				li.createEl('strong', { text: 'Creation Templates: ' });
+				li.appendText('Create new notes and save them based on the template name. For example, "A-Inbox-Ideas" will create a new note in A/Inbox/Ideas/ folder (the plugin creates folders automatically if needed).');
+			}
+			{
+				const li = typesList.createEl('li');
+				li.createEl('strong', { text: 'Insertion Templates: ' });
+				li.appendText('Insert text and links to vault notes in specific places within target files. The template prefix (default "Content-to-") determines insertion templates. For example, "Content-to-D-YouTube Channel-Build Better Habits" inserts content into "Build Better Habits.md" in D/YouTube Channel/ (created automatically if needed).');
+			}
 
 			// Step 3
 			const step3 = body.createEl('div', { cls: 'abcs-help-step' });

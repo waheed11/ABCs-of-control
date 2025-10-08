@@ -4,7 +4,7 @@ export interface ArchiveSettings {
 	excludeFolders: string[];
 }
 
-export interface MyPluginSettings {
+export interface ABCsOfControlSettings {
 	templateFolderPath: string;
 	whenToUse: string;
 	archiveSettings: ArchiveSettings;

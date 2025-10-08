@@ -1,5 +1,5 @@
 import { App, Modal, TFile, Notice, normalizePath } from 'obsidian';
-import { MyPluginSettings, HeadingMeta, Selection } from '../types';
+import { HeadingMeta, Selection } from '../types';
 import { WHEN_TO_USE_OPTIONS } from '../constants';
 import { getTemplateFiles, ensureFolderExists, parseSection, compareSection, detectArabicContent } from '../utils';
 import { ContentToDProjectsHandler } from '../handlers/contentToDProjectsHandler';
@@ -60,8 +60,6 @@ export class ABCsModal extends Modal {
 
         // Support footer (unobtrusive)
         const footer = contentEl.createDiv({ cls: 'abcs-support-footer' });
-        footer.style.marginTop = '8px';
-        footer.style.opacity = '0.8';
         const label = footer.createEl('span', { text: 'Support: ' });
         const sponsors = footer.createEl('a', { text: 'GitHub Sponsors' });
         sponsors.setAttr('href', 'https://github.com/sponsors/waheed11');

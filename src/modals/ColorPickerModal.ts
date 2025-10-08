@@ -1,5 +1,4 @@
 import { App, Modal } from 'obsidian';
-
 export class ColorPickerModal extends Modal {
 	private colors: string[];
 	private defaultColor: string;
@@ -16,11 +15,11 @@ export class ColorPickerModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl('h2', { text: 'Select Highlight Color' });
-		
+
 		const row = contentEl.createDiv({ cls: 'color-container' });
 		this.colors.forEach((color) => {
 			const swatch = row.createDiv({ cls: 'color-swatch' });
-			swatch.style.backgroundColor = color;
+			swatch.setAttr('data-color', color);
 			if (color === this.defaultColor) {
 				swatch.addClass('selected');
 			}
@@ -29,7 +28,7 @@ export class ColorPickerModal extends Modal {
 				this.close();
 			});
 		});
-		
+
 		const buttons = contentEl.createDiv({ cls: 'button-container' });
 		const cancelButton = buttons.createEl('button', { text: 'Cancel' });
 		cancelButton.addEventListener('click', () => {

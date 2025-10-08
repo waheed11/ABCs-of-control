@@ -22,18 +22,12 @@ tags:
 lang: 
 aliases:
 ---
-
-
 ## About:
 {{VALUE:What is the idea about}}
 
 ## When do you expect to use it?
 
-So what is the reason of configure 
-
 ## How to use it?
-
-
 
 ## Other related notes?
 
@@ -43,52 +37,53 @@ So what is the reason of configure
 			name: 'A-Contacts.md',
 			content: `---
 type: contact
-status: 
+name: "{{VALUE:name}}"
 date: 
-tags:
-  - contacts
+tags: 
+role: "{{VALUE:role}}"
 lang: 
 aliases:
 ---
 
-## Name:
-{{VALUE:Contact name}}
+## ℹ Contact Info:
 
-## Role/Title:
+{{VALUE:main contact info}}
+### 🌐 Website:
 
+{{VALUE:website}}
+### 📧 email:
 
-## Contact Information:
+{{VALUE:email}}
+### 📱 Phone Number:
 
+{{VALUE:Phone Number}}
+### 🔗 LinkedIn:
 
-## Notes:
+{{VALUE:LinkedIn}}
+## Other info:
 
-
-## Related Notes:
-
+{{VALUE:Other info}}
 `
 		},
 		{
 			name: 'A-Permanent Notes.md',
 			content: `---
-type: permanent-note
-status: 
-date: 
+type: permanent
+date:
 tags:
   - {{VALUE:tags}}
-lang: 
+lang:
 aliases:
+author:
+verified: "{{VALUE: Is Verified}}"
+importance: "{{VALUE: Importance from 1 to 5 }}"
+when-to-use: "{{VALUE: When to use }}"
+complexity: "{{VALUE: Complexity from 1 to 5 }}"
 ---
+{{VALUE:The permanent note}}
 
-## Main Idea:
-{{VALUE:What is the main concept}}
-
-## Context:
-
-
-## Key Points:
-
-
-## Related Notes:
+## Sources:
+{{VALUE:The Source}}
 
 `
 		},
@@ -96,27 +91,20 @@ aliases:
 			name: 'A-Prompts.md',
 			content: `---
 type: prompt
-status: 
-date: 
+date:
 tags:
-  - prompts
-lang: 
+  - "{ VALUE:tags }":
+lang:
 aliases:
 ---
-
-## Purpose:
-{{VALUE:What is this prompt for}}
-
 ## Prompt:
+{{VALUE:prompt}}
 
+## Usages
+(List of expected usages)
 
-## Variables:
-
-
-## Example Output:
-
-
-## Notes:
+## Source:
+{{VALUE:source}}
 
 `
 		},
@@ -124,133 +112,150 @@ aliases:
 			name: 'A-Quotes.md',
 			content: `---
 type: quote
-status: 
-date: 
+date:
 tags:
-  - quotes
-lang: 
+  - {{VALUE:tags}}
+lang:
+  - en
 aliases:
+author:
+verified: "{{VALUE: Is Verified}}"
+importance: "{{VALUE: Importance from 1 to 5 }}"
+when-to-use: "{{VALUE: When to use }}"
+complexity: "{{VALUE: Complexity from 1 to 5 }}"
 ---
+### Quote: 
+#### {{VALUE:quote}}
 
-## Quote:
-{{VALUE:The quote text}}
+### Author/Authors: 
+#### {{VALUE:author}}
 
-## Source:
+### The Related Permanent Notes:
 
+###### Source:
+ {{VALUE:source}}
 
-## Context:
+###### Reference (Bibliography):
 
-
-## Why it matters:
-
-
-## Related Notes:
+ {{VALUE:bibliography}}
 
 `
 		},
 		{
 			name: 'B-AI Consultants.md',
 			content: `---
-type: ai-consultant
-status: 
+type: ai-tool
 date: 
 tags:
-  - ai
-  - consulting
-lang: 
+- {{VALUE:tags}} 
+lang: []
 aliases:
 ---
+## {{VALUE:title}}
 
-## AI Tool/Service:
-{{VALUE:Name of AI tool}}
+### Main Conversation URL:
 
-## Purpose:
+{{VALUE:url}}
+
+### Main AI tool :
+
+{{VALUE:ai tool}}
+{{VALUE:ai tool version}}
+{{VALUE:company}}
+### Main Prompt:
+
+{{VALUE:prompt}}
+
+### Bibliography-Example:
+(GPT-4 Omni, response to “Explain how to make pizza dough from common household ingredients,” OpenAI, March 7, 2023)
+### Bibliography:
+
+{{VALUE:ai tool}}-{{VALUE:ai tool version}}, response to *"{{VALUE:prompt}}"*, {{VALUE:company}}, {{VALUE:date in Month dd, yyyy}}
+# 📓 Advisory Board-AI Consultants
 
 
-## Key Features:
+***
 
+## ❓ Question / Objective
+(Write the main question or the conversation objective here)
+{{VALUE:prompt}}
 
-## Use Cases:
+## 📋  Conversation
+(Write the response to the questions and the the conversation here)
 
+***
 
-## Integration Notes:
+## 📝 Highlights & Comments
 
+***
 
-## Related Notes:
+# 🗨 Quotes
+(Convert highlights into quotes if needed)
+Use the following citation format:
+{{VALUE:ai tool}}-{{VALUE:ai tool version}}, response to *"{{VALUE:prompt}}"*, {{VALUE:company}}, {{VALUE:date in Month dd, yyyy}}
 
 `
 		},
 		{
 			name: 'B-Literature Notes-Articles.md',
 			content: `---
-type: literature-note
-source-type: article
-status: 
+type: literature
 date: 
+author: 
 tags:
-  - {{VALUE:tags}}
+- {{VALUE:tags}} 
 lang: 
-aliases:
+aliases: 
 ---
-
-## Article Title:
-{{VALUE:Title of the article}}
-
-## Author:
+### Formatted Bibliography
+{{VALUE:bibliography}}
+# 📓 The Literature Notes
 
 
-## Source/URL:
+## 📝 Highlights & Comments
 
 
-## Key Takeaways:
+# 🗨 Quotes
+
+{{VALUE:bibliography}}
+
+# ✒The Permanent Notes
 
 
-## Quotes:
-
-
-## My Thoughts:
-
-
-## Related Notes:
+###### Source:
+ {{VALUE:source}}
 
 `
 		},
 		{
 			name: 'B-Literature Notes-YouTube Summaries.md',
 			content: `---
-type: literature-note
-source-type: youtube
-status: 
+type: literature
 date: 
-tags:
-  - youtube
-  - {{VALUE:tags}}
+author: 
+tags: 
+- {{VALUE:tags}} 
+
+published: 
 lang: 
 aliases:
 ---
+### Formatted Bibliography
+{{VALUE:bibliography}}
 
-## Video Title:
-{{VALUE:Title of the video}}
-
-## Channel:
-
-
-## URL:
+# 📓 Literature Notes
 
 
-## Summary:
+## 📝 Highlights & Comments
+
+# 🗨 Quotes
+
+{{VALUE:bibliography}}
+# ✒The Permanent Notes
 
 
-## Key Points:
-
-
-## Timestamps:
-
-
-## Action Items:
-
-
-## Related Notes:
+###### Source:
+ {{VALUE:source}}
 
 `
 		},

@@ -15,8 +15,6 @@ aliases:
 ## 📝 Highlights & Comments
 
 
-
-
 # 🗨 Quotes
 
 {{VALUE:bibliography}}

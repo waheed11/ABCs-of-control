@@ -287,227 +287,14 @@ If your plugin does not need CSS, delete this file.
     color: var(--text-on-accent);
 }
 
-.button-container button:hover {
+  .button-container button:hover {
     filter: brightness(1.1);
-}
+  }
 
-/* Color picker modal */
+  /* Color picker modal */
 .color-picker-modal {
     padding: 20px;
     width: 300px;
-}
-
-.color-container {
-    display: flex;
-    justify-content: space-around;
-    margin: 20px 0;
-}
-
-.color-swatch {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-    border: 2px solid transparent;
-}
-
-.color-swatch:hover {
-    transform: scale(1.1);
-}
-
-.color-swatch.selected {
-    border-color: var(--text-normal);
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
-}
-
-/* Highlight styles */
-.markdown-rendered mark {
-    padding: 0 4px;
-    border-radius: 4px;
-}
-
-/* Specific highlight colors */
-.markdown-rendered mark[style*="background: yellow"] {
-    background-color: rgba(255, 255, 0, 0.3) !important;
-}
-
-.markdown-rendered mark[style*="background: green"] {
-    background-color: rgba(0, 128, 0, 0.2) !important;
-}
-
-.markdown-rendered mark[style*="background: red"] {
-    background-color: rgba(255, 0, 0, 0.2) !important;
-}
-
-.markdown-rendered mark[style*="background: blue"] {
-    background-color: rgba(0, 0, 255, 0.2) !important;
-}
-
-.markdown-rendered mark[style*="background: gray"] {
-    background-color: rgba(128, 128, 128, 0.2) !important;
-}
-
-/* Full width preview for the selected heading */
-.abcs-of-control-modal .heading-preview {
-	margin-top: 6px;
-	padding: 10px 12px;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	background: var(--background-modifier-hover);
-	color: var(--text-normal);
-	white-space: normal; /* allow wrapping */
-	word-break: break-word; /* break very long tokens */
-	direction: rtl; /* render Arabic nicely */
-	text-align: right;
-	font-size: 0.95rem;
-}
-
-/* ---- Minimal layout for heading + [[note]] form ---- */
-.abcs-of-control-modal .form-row {
-	flex-direction: column;
-	align-items: stretch;
-}
-
-.abcs-of-control-modal .form-row label {
-	min-width: 0;
-	margin-bottom: 4px;
-}
-
-.abcs-of-control-modal .form-row select {
-	width: 100%;
-	/* Increase visible height */
-	padding: 14px 14px;
-	min-height: 44px;
-	/* Improve readability */
-	font-size: 1rem;
-	line-height: 1.5;
-	/* Better defaults for mixed languages */
-	direction: auto;
-	text-align: start;
-	/* keep existing theming */
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	background-color: var(--background-primary);
-	color: var(--text-normal);
-}
-
-.abcs-of-control-modal .form-row select option {
-	white-space: normal;
-	padding: 6px 8px;
-}
-
-.selected-notes {
-	margin-top: 10px;
-}
-
-.selected-notes h3 {
-	margin: 12px 0 6px 0;
-	font-size: 1rem;
-}
-
-.selected-notes ul {
-	list-style: none;
-	padding: 0;
-	margin: 0;
-}
-
-.selected-notes ul li {
-	padding: 6px 10px;
-	margin: 4px 0;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	background: var(--background-modifier-hover);
-}
-
-.master-checkbox-container {
-    margin-bottom: 15px;
-    padding: 10px;
-    background-color: var(--background-secondary);
-    border-radius: 5px;
-}
-
-.archive-file-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 8px;
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.file-checkbox {
-    margin-top: 2px;
-    flex-shrink: 0;
-}
-
-.file-info {
-    flex-grow: 1;
-}
-
-/* ---- Wiki [[...]] suggester ---- */
-.wiki-suggest-box {
-	margin-top: 6px;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	background: var(--background-primary);
-	max-height: 240px;
-	overflow: auto;
-	box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-	z-index: 1000;
-}
-
-.wiki-suggest-list {
-	list-style: none;
-	padding: 4px;
-	margin: 0;
-}
-
-.wiki-suggest-list li {
-	margin: 0;
-}
-
-.wiki-suggest-list li button {
-	width: 100%;
-	text-align: left;
-	padding: 8px 10px;
-	border: none;
-	background: transparent;
-	border-radius: 4px;
-	cursor: pointer;
-	color: var(--text-normal);
-}
-
-.wiki-suggest-list li button:hover {
-	background: var(--background-modifier-hover);
-}
-
-.wiki-suggest-list li.active button {
-	background: var(--background-modifier-active-hover, var(--background-modifier-hover));
-	outline: 2px solid var(--interactive-accent);
-}
-/* SVG arrows overlay for ABCs diagram */
-.abc-svg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none; /* allow clicking bubbles through */
-    z-index: 0;
-  }
-  
-  /* keep bubbles above the arrows */
-  .letter-bubble {
-    position: relative;
-    z-index: 1;
-  }
-/* ---- End: minimal layout additions ---- */
-
-/* ===== Pipeline Configuration Styles */
-.abcs-pipeline-container {
-    margin: 15px 0;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 6px;
     background-color: var(--background-secondary);
 }
 
@@ -543,6 +330,41 @@ If your plugin does not need CSS, delete this file.
     font-size: 0.9rem;
 }
 
+/* ---- ABCs utilities and review-compliance classes ---- */
+.abcs-support-footer {
+    margin-top: 8px;
+    opacity: 0.8;
+}
+
+.abcs-full-width {
+    width: 100% !important;
+}
+
+/* Stack children vertically inside a row */
+.abcs-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+}
+.abcs-stack > button {
+    align-self: flex-start;
+}
+
+/* Direction-aware select alignment */
+.abcs-of-control-modal .form-row select[dir="rtl"] { text-align: right; }
+.abcs-of-control-modal .form-row select[dir="ltr"] { text-align: left; }
+
+/* Textarea/button spacing utilities used in handlers */
+.abcs-textarea { width: 100%; margin-top: 5px; }
+.abcs-mt-5 { margin-top: 5px; }
+
+/* Color picker swatches (data-driven colors) */
+.color-swatch[data-color="yellow"] { background-color: yellow; }
+.color-swatch[data-color="green"]  { background-color: green; }
+.color-swatch[data-color="red"]    { background-color: red; }
+.color-swatch[data-color="blue"]   { background-color: blue; }
+.color-swatch[data-color="gray"]   { background-color: gray; }
 /* ===== Archive Projects Modal Styles */
 .archive-description {
     color: var(--text-muted);

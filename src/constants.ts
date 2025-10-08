@@ -1,6 +1,6 @@
-import { MyPluginSettings, SectionHeaders } from './types';
+import { ABCsOfControlSettings, SectionHeaders } from './types';
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
+export const DEFAULT_SETTINGS: ABCsOfControlSettings = {
 	templateFolderPath: 'C/Templates',
 	defaultHighlightColor: 'yellow',
 	language: 'english',
