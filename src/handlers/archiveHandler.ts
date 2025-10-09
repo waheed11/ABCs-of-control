@@ -1,5 +1,5 @@
 import { App, TFile, TFolder, TAbstractFile, Notice, normalizePath } from 'obsidian';
-import { ensureFolderExists } from '../utils';
+import { ensureFolderExists, getRoleRoot, isPathUnder } from '../utils';
 import { ArchiveSettings } from '../types';
 
 export class ArchiveHandler {
@@ -9,81 +9,70 @@ export class ArchiveHandler {
 		this.app = app;
 	}
 
-	/**
-	 * Archive all notes with #archived tag to E/Archive folder
-	 */
-	async archiveTaggedNotes(): Promise<void> {
+	    /**
+    	 * Archive all notes with #archived tag to archive root (language-aware)
+    	 */
+    /**
+ * Archive all notes with #archived tag to archive root (language-aware)
+ */
+async archiveTaggedNotes(): Promise<void> {
+	try {
+	  const archiveRoot = getRoleRoot(this.app, 'E');
+	  const allFiles = this.app.vault.getMarkdownFiles();
+	  const filesToArchive: TFile[] = [];
+  
+	  // Scan all notes, skip those already under archive root
+	  for (const file of allFiles) {
+		if (isPathUnder(file.path, archiveRoot)) continue;
 		try {
-			// Get all markdown files in the vault
-			const allFiles = this.app.vault.getMarkdownFiles();
-			const filesToArchive: TFile[] = [];
-
-			// Search for files containing #archived tag
-			for (const file of allFiles) {
-				// Skip files already in E/Archive
-				if (file.path.startsWith('E/')) {
-					continue;
-				}
-
-				try {
-					const content = await this.app.vault.read(file);
-					
-					// Check if file contains #archived tag (in content or frontmatter)
-					if (this.containsArchivedTag(content)) {
-						filesToArchive.push(file);
-					}
-				} catch (error) {
-					console.warn(`Could not read file ${file.path}:`, error);
-				}
-			}
-
-			if (filesToArchive.length === 0) {
-				new Notice('No files with #archived tag found to archive.');
-				return;
-			}
-
-			// Ensure E/Archive folder exists
-			await ensureFolderExists(this.app, 'E/Archive');
-
-			// Move files to E/Archive
-			let movedCount = 0;
-			const errors: string[] = [];
-
-			for (const file of filesToArchive) {
-				try {
-					const newPath = normalizePath(`E/Archive/${file.name}`);
-					
-					// Check if file already exists at destination
-					const existingFile = this.app.vault.getAbstractFileByPath(newPath);
-					if (existingFile) {
-						// Generate unique name
-						const uniquePath = await this.generateUniquePath(newPath);
-						await this.app.fileManager.renameFile(file, uniquePath);
-					} else {
-						await this.app.fileManager.renameFile(file, newPath);
-					}
-					
-					movedCount++;
-				} catch (error) {
-					errors.push(`${file.name}: ${(error as Error).message}`);
-				}
-			}
-
-			// Show results
-			if (movedCount > 0) {
-				new Notice(`✅ Archived ${movedCount} file(s) to E/Archive`);
-			}
-
-			if (errors.length > 0) {
-				new Notice(`⚠️ ${errors.length} file(s) could not be archived. Check console for details.`);
-				console.error('Archive errors:', errors);
-			}
-
-		} catch (error) {
-			new Notice(`Error during archiving: ${(error as Error).message}`);
-			console.error('Archive process error:', error);
+		  const content = await this.app.vault.read(file);
+		  if (this.containsArchivedTag(content)) {
+			filesToArchive.push(file);
+		  }
+		} catch (err) {
+		  console.warn(`Failed to read ${file.path} while scanning for #archived:`, err);
 		}
+	  }
+  
+	  if (filesToArchive.length === 0) {
+		new Notice(`No files with #archived tag found to archive in ${archiveRoot}.`);
+		return;
+	  }
+  
+	  // Ensure destination root exists
+	  await ensureFolderExists(this.app, archiveRoot);
+  
+	  // Move files (handle naming conflicts)
+	  let movedCount = 0;
+	  const errors: string[] = [];
+	  for (const file of filesToArchive) {
+		try {
+		  const newPath = normalizePath(`${archiveRoot}/${file.name}`);
+		  const existingFile = this.app.vault.getAbstractFileByPath(newPath);
+		  if (existingFile) {
+			const uniquePath = await this.generateUniquePath(newPath);
+			await this.app.fileManager.renameFile(file, uniquePath);
+		  } else {
+			await this.app.fileManager.renameFile(file, newPath);
+		  }
+		  movedCount++;
+		} catch (error) {
+		  errors.push(`${file.name}: ${(error as Error).message}`);
+		}
+	  }
+  
+	  if (movedCount > 0) {
+		new Notice(`✅ Archived ${movedCount} file(s) to ${archiveRoot}`);
+	  }
+	  if (errors.length > 0) {
+		new Notice(`⚠️ ${errors.length} file(s) could not be archived. Check console for details.`);
+		console.error('Archive errors:', errors);
+	  }
+	} catch (error) {
+	  new Notice(`Error during archiving: ${(error as Error).message}`);
+	  console.error('Archive process error:', error);
 	}
+  }
 
 	/**
 	 * Check if content contains #archived tag
@@ -145,10 +134,11 @@ async getFilesToArchiveByAge(settings: ArchiveSettings): Promise<{ file: TFile; 
 	const filesToArchive: { file: TFile; age: number }[] = [];
 	const now = Date.now();
 	const cutoffTime = now - (settings.archiveAfterDays * 24 * 60 * 60 * 1000);
+	const archiveRoot = getRoleRoot(this.app, 'E');
 
 	for (const file of allFiles) {
-		// Skip files already in E/Archive
-		if (file.path.startsWith('E/Archive/')) {
+		// Skip files already under archive root
+		if (isPathUnder(file.path, archiveRoot)) {
 			continue;
 		}
 
@@ -179,8 +169,8 @@ async archiveFilesByAge(settings: ArchiveSettings): Promise<void> {
 		return;
 	}
 
-	// Ensure E/Archive folder exists
-	await ensureFolderExists(this.app, 'E/Archive');
+	const archiveRoot = getRoleRoot(this.app, 'E');
+	await ensureFolderExists(this.app, archiveRoot);
 
 	// Move files to E/Archive
 	let movedCount = 0;
@@ -188,7 +178,7 @@ async archiveFilesByAge(settings: ArchiveSettings): Promise<void> {
 
 	for (const { file } of filesToArchive) {
 		try {
-			const newPath = normalizePath(`E/Archive/${file.name}`);
+			const newPath = normalizePath(`${archiveRoot}/${file.name}`);
 			
 			// Check if file already exists at destination
 			const existingFile = this.app.vault.getAbstractFileByPath(newPath);
@@ -208,7 +198,7 @@ async archiveFilesByAge(settings: ArchiveSettings): Promise<void> {
 
 	// Show results
 	if (movedCount > 0) {
-		new Notice(`✅ Archived ${movedCount} old file(s) to E/Archive`);
+		new Notice(`✅ Archived ${movedCount} old file(s) to ${archiveRoot}`);
 	}
 
 	if (errors.length > 0) {
@@ -219,13 +209,14 @@ async archiveFilesByAge(settings: ArchiveSettings): Promise<void> {
 async archiveSpecificFiles(filesToArchive: { file: any; age: number }[]): Promise<void> {
 	let movedCount = 0;
 	const errors: string[] = [];
+	const archiveRoot = getRoleRoot(this.app, 'E');
 
 	for (const { file } of filesToArchive) {
 		try {
-			const archivePath = `E/Archive/${file.name}`;
+			const archivePath = `${archiveRoot}/${file.name}`;
 			
-			// Ensure E/Archive folder exists
-			await ensureFolderExists(this.app, 'E/Archive');
+			// Ensure archive root exists
+			await ensureFolderExists(this.app, archiveRoot);
 			
 			// Handle naming conflicts
 			let finalPath = archivePath;
@@ -233,7 +224,7 @@ async archiveSpecificFiles(filesToArchive: { file: any; age: number }[]): Promis
 			while (this.app.vault.getAbstractFileByPath(finalPath)) {
 				const nameWithoutExt = file.basename;
 				const ext = file.extension;
-				finalPath = `E/Archive/${nameWithoutExt} (${counter}).${ext}`;
+				finalPath = `${archiveRoot}/${nameWithoutExt} (${counter}).${ext}`;
 				counter++;
 			}
 			
@@ -247,7 +238,7 @@ async archiveSpecificFiles(filesToArchive: { file: any; age: number }[]): Promis
 
 	// Show results
 	if (movedCount > 0) {
-		new Notice(`✅ Successfully archived ${movedCount} file(s) to E/Archive`);
+		new Notice(`✅ Successfully archived ${movedCount} file(s) to ${archiveRoot}`);
 	}
 	
 	if (errors.length > 0) {
@@ -289,10 +280,11 @@ async moveFolder(fromPath: string, toPath: string): Promise<string> {
   }
   
   /** Move a D/{Projects|Exams}/[name] folder to E/{Projects|Exams}/[name] */
-  async moveProjectOrExam(kind: 'project' | 'exam', name: string): Promise<string> {
+async moveProjectOrExam(kind: 'project' | 'exam', name: string): Promise<string> {
 	const kindFolder = kind === 'project' ? 'Projects' : 'Exams';
 	const fromPath = `D/${kindFolder}/${name}`;
-	const toPath = `E/${kindFolder}/${name}`;
+	const archiveRoot = getRoleRoot(this.app, 'E');
+	const toPath = `${archiveRoot}/${kindFolder}/${name}`;
 	return await this.moveFolder(fromPath, toPath);
   }
   

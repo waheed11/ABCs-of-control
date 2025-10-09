@@ -218,13 +218,33 @@ async function scanCTemplates(app: App, templateMap: Map<string, TFile[]>): Prom
 			
 			if (matched) continue;
 			
-			// Check if the file name starts with a letter followed by a dash (e.g., A-Something)
-			const firstChar = fileName.charAt(0).toUpperCase();
-			if (ALPHABET.includes(firstChar) && fileName.charAt(1) === '-') {
-				const letterFiles = templateMap.get(firstChar) || [];
-				letterFiles.push(file);
-				templateMap.set(firstChar, letterFiles);
-				continue;
+			// Check if the file name starts with a letter followed by a dash:
+			// - English: A-, B-, C-, D-, E-
+			// - Arabic:  أ-, ب-, ت-, ث-, ج-  (mapped to A, B, C, D, E)
+			const rawFirst = fileName.charAt(0);
+			const secondIsDash = fileName.charAt(1) === '-';
+			if (secondIsDash) {
+				const ARABIC_TO_LATIN: Record<string, string> = {
+					'أ': 'A',
+					'ا': 'A', // fallback, in case user uses bare alif
+					'ب': 'B',
+					'ت': 'C',
+					'ث': 'D',
+					'ج': 'E',
+				};
+				const latin = rawFirst.toUpperCase();
+				let bucket: string | null = null;
+				if (ALPHABET.includes(latin)) {
+					bucket = latin;
+				} else if (ARABIC_TO_LATIN[rawFirst]) {
+					bucket = ARABIC_TO_LATIN[rawFirst];
+				}
+				if (bucket) {
+					const letterFiles = templateMap.get(bucket) || [];
+					letterFiles.push(file);
+					templateMap.set(bucket, letterFiles);
+					continue;
+				}
 			}
 			
 			// For templates without letter prefix, infer from path structure
@@ -323,36 +343,42 @@ export function getPhase0(app: App): Profile | null {
  * C is hardcoded to 'C' and not configurable
  */
 export function getRoleRoot(app: App, role: 'C' | 'E'): string {
-	if (role === 'C') {
-		return 'C'; // C is always 'C', not configurable
-	}
-	
-	const prof = getPhase0(app);
-	if (!prof) return 'E/Archive'; // fallback for E
-	
-	const value = prof.roles.E;
-	
-	// Backward compatibility: if it's an array (old format), take first element
-	if (Array.isArray(value)) {
-		const path = value[0] || 'E/Archive';
-		return path.replace(/\/$/, ''); // Remove trailing slash
-	}
-	
-	const stringValue = value || 'E/Archive';
-	return stringValue.replace(/\/$/, ''); // Remove trailing slash
+    // C root is the letter root, not localized
+    if (role === 'C') return 'C';
+    // Determine language
+    let lang = 'english';
+    try {
+        const p = (app as any).plugins?.plugins?.['abcs-of-control'];
+        lang = p?.settings?.language || 'english';
+    } catch {}
+    // Read configured E root from Phase 0, if any
+    const prof = getPhase0(app);
+    let configured: string | undefined;
+    if (prof) {
+        const v = (prof as any).roles?.E;
+        configured = Array.isArray(v) ? (v[0] as string | undefined) : (v as string | undefined);
+    }
+    const defaultByLang = lang === 'arabic' ? 'ج/الارشيف' : 'E/Archive';
+    if (!configured || configured.trim() === '') return defaultByLang;
+    const normalized = configured.replace(/\/$/, '');
+    // If Arabic language but config is still the English default, localize implicitly
+    if (lang === 'arabic' && normalized === 'E/Archive') return 'ج/الارشيف';
+    return normalized;
 }
 
-/**
- * Get the templates folder path - always C/Templates (hardcoded)
- */
 export function getTemplatesFolder(app: App): string {
-	return 'C/Templates';
+    try {
+        const p = (app as any).plugins?.plugins?.['abcs-of-control'];
+        const lang = p?.settings?.language || 'english';
+        if (lang === 'arabic') return 'ت/القوالب';
+    } catch {}
+    return 'C/Templates';
 }
 
 /**
  * Parse insertion template name to extract target path and filename
  * Format: {prefix}-{path-segments}-{filename}
- * Example: 'Content-to-D-YouTube Channel-Breaking Bad Habits'
+{{ ... }}
  * Returns: { path: 'D/YouTube Channel', filename: 'Breaking Bad Habits', fullPath: 'D/YouTube Channel/Breaking Bad Habits.md' }
  */
 export function parseInsertionTemplateName(templateName: string, prefix: string): { 

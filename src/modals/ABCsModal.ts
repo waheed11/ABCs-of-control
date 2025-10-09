@@ -1,7 +1,7 @@
 import { App, Modal, TFile, Notice, normalizePath } from 'obsidian';
 import { HeadingMeta, Selection } from '../types';
 import { WHEN_TO_USE_OPTIONS } from '../constants';
-import { getTemplateFiles, ensureFolderExists, parseSection, compareSection, detectArabicContent } from '../utils';
+import { getTemplateFiles, ensureFolderExists, parseSection, compareSection, detectArabicContent, getTemplatesFolder } from '../utils';
 import { ContentToDProjectsHandler } from '../handlers/contentToDProjectsHandler';
 import { NoteCreationHandler } from '../handlers/noteCreationHandler';
 import { TipsToEExamsHandler } from '../handlers/tipsToEExamsHandler';
@@ -21,46 +21,49 @@ export class ABCsModal extends Modal {
 		super(app);
 		this.plugin = plugin;
 		this.contentToDProjectsHandler = new ContentToDProjectsHandler(app);
-        this.tipsToEExamsHandler = new TipsToEExamsHandler(app);
-        this.archiveHandler = new ArchiveHandler(app);
+		this.tipsToEExamsHandler = new TipsToEExamsHandler(app);
+		this.archiveHandler = new ArchiveHandler(app);
 		this.noteCreationHandler = new NoteCreationHandler(app);
 	}
 	
-	async onOpen() {
+    async onOpen() {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('abcs-of-control-modal');
-        
+        // Apply direction based on language
+        contentEl.setAttr('dir', this.isArabic() ? 'rtl' : 'ltr');
         // Add title
-        contentEl.createEl('h2', { text: 'ABCs of Control' });
-        
+        contentEl.createEl('h2', { text: this.isArabic() ? 'أبجديات التحكم' : 'ABCs of Control' });
+
         // Load template files from configurable templates folder
         this.templateMap = await getTemplateFiles(this.app);
-        
+
         // Create ABCs UI based on the wireframe
         const abcContainer = contentEl.createDiv({ cls: 'abc-container' });
-        
+
         // Create the layout structure
         const topRow = abcContainer.createDiv({ cls: 'abc-row top-row' });
         const middleRow = abcContainer.createDiv({ cls: 'abc-row middle-row' });
         const bottomRow = abcContainer.createDiv({ cls: 'abc-row bottom-row' });
-        
+
         // Create letter cells
         const letterA = this.createLetterCell('A', 'left', topRow);
         const letterB = this.createLetterCell('B', 'right', topRow);
         const letterC = this.createLetterCell('C', 'center', middleRow);
         const letterD = this.createLetterCell('D', 'left', bottomRow);
         const letterE = this.createLetterCell('E', 'right', bottomRow);
+
         // Draw arrows and keep them synced on resize
         this.drawArrows(abcContainer, { A: letterA, B: letterB, C: letterC, D: letterD, E: letterE });
         this.resizeHandler = () => this.drawArrows(abcContainer, { A: letterA, B: letterB, C: letterC, D: letterD, E: letterE });
         window.addEventListener('resize', this.resizeHandler);
+
         // Add container for template list
         contentEl.createDiv({ cls: 'template-list-container' });
 
         // Support footer (unobtrusive)
         const footer = contentEl.createDiv({ cls: 'abcs-support-footer' });
-        const label = footer.createEl('span', { text: 'Support: ' });
+        footer.createEl('span', { text: this.isArabic() ? 'الدعم: ' : 'Support: ' });
         const sponsors = footer.createEl('a', { text: 'GitHub Sponsors' });
         sponsors.setAttr('href', 'https://github.com/sponsors/waheed11');
         sponsors.setAttr('target', '_blank');
@@ -71,46 +74,53 @@ export class ABCsModal extends Modal {
         coffee.setAttr('target', '_blank');
         coffee.setAttr('rel', 'noopener');
     }
+
     onClose() {
         if (this.resizeHandler) {
-          window.removeEventListener('resize', this.resizeHandler);
-          this.resizeHandler = undefined;
+            window.removeEventListener('resize', this.resizeHandler);
+            this.resizeHandler = undefined;
         }
-      }
+    }
 
     createLetterCell(letter: string, position: string, container: HTMLElement): HTMLElement {
         const letterCell = container.createDiv({ cls: `letter-cell ${position}` });
-        
-        // Create the letter bubble
         const letterBubble = letterCell.createDiv({ cls: 'letter-bubble' });
-        letterBubble.createDiv({ cls: 'letter', text: letter });
-        
-        // Check if templates exist for this letter
+        letterBubble.createDiv({ cls: 'letter', text: this.getLetterLabel(letter) });
+
         const hasTemplates = (this.templateMap.get(letter) ?? []).length > 0;
-        
-        // Make E clickable even if it has no templates (to show Archive actions)
-        // Others remain clickable only if templates exist
         if (hasTemplates || letter === 'E') {
             letterBubble.addClass('has-templates');
-            letterBubble.addEventListener('click', () => {
-                this.showTemplatesForLetter(letter);
-            });
+            letterBubble.addEventListener('click', () => this.showTemplatesForLetter(letter));
         }
-        
         return letterCell;
     }
-    // Resolve active Phase 0 pipeline by matching templatePrefix against a clicked template's basename
+
+    private isArabic(): boolean {
+        return this.plugin?.settings?.language === 'arabic';
+    }
+
+    private getLetterLabel(letter: string): string {
+        if (!this.isArabic()) return letter;
+        switch (letter) {
+            case 'A': return 'أ';
+            case 'B': return 'ب';
+            case 'C': return 'ت';
+            case 'D': return 'ث';
+            case 'E': return 'ج';
+            default: return letter;
+        }
+    }
+
     private resolvePipelineIdForTemplate(template: TFile): string | null {
         const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
         const s = p?.settings?.abcsPhase0;
         if (!s) return null;
         const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
         const basename = template.basename;
-    
         for (const pipe of prof.pipelines || []) {
-        if (pipe?.templatePrefix && basename.startsWith(pipe.templatePrefix)) {
-            return pipe.id;
-        }
+            if (pipe?.templatePrefix && basename.startsWith(pipe.templatePrefix)) {
+                return pipe.id;
+            }
         }
         return null;
     }
@@ -144,7 +154,7 @@ export class ABCsModal extends Modal {
         if (letter === 'E') {
             const archiveItem = templateList.createEl('li');
             const archiveButton = archiveItem.createEl('button', { 
-                text: '📦 Archive #archived Notes',
+                text: this.isArabic() ? '📦 أرشفة الملاحظات #archived' : '📦 Archive #archived Notes',
                 cls: 'archive-now-button'
             });
             archiveButton.addEventListener('click', async () => {
@@ -153,7 +163,7 @@ export class ABCsModal extends Modal {
 
             const projectsItem = templateList.createEl('li');
             const projectsButton = projectsItem.createEl('button', { 
-                text: '📁 Archive Projects/Exams',
+                text: this.isArabic() ? '📁 أرشفة المشاريع/الامتحانات' : '📁 Archive Projects/Exams',
                 cls: 'archive-projects-button'
             });
             projectsButton.addEventListener('click', async () => {
@@ -164,16 +174,16 @@ export class ABCsModal extends Modal {
 
             const settingsItem = templateList.createEl('li');
             const settingsButton = settingsItem.createEl('button', { 
-                text: '⚙️ Archive Settings',
+                text: this.isArabic() ? '⚙️ إعدادات الأرشفة' : '⚙️ Archive Settings',
                 cls: 'archive-settings-button'
             });
             settingsButton.addEventListener('click', async () => {
                 const { ArchiveSettingsModal } = await import('./ArchiveSettingsModal');
-                const tplFolder = this.plugin.settings.templateFolderPath || 'C/Templates';
+                const tplFolder = getTemplatesFolder(this.app);
                 const currentSettings = this.plugin.settings.archiveSettings || {
                 enabled: false,
                 archiveAfterDays: 30,
-                excludeFolders: [tplFolder, 'E'] // exclude C/Templates and all of E
+                excludeFolders: [tplFolder, 'E'] // exclude Templates root and all of E
                 };
                 const modal = new ArchiveSettingsModal(
                     this.app,
@@ -190,8 +200,10 @@ export class ABCsModal extends Modal {
         // If no templates: for E, just return silently (actions above already shown). For others, show a message.
         if (templates.length === 0) {
             if (letter !== 'E') {
-            const msgItem = templateList.createEl('li');
-            msgItem.createEl('span', { text: `No templates found for letter ${letter}` });
+                const msgItem = templateList.createEl('li');
+                const label = this.getLetterLabel(letter);
+                const msg = this.isArabic() ? `لا توجد قوالب للحرف ${label}` : `No templates found for letter ${label}`;
+                msgItem.createEl('span', { text: msg });
             }
             return;
         }
@@ -205,8 +217,10 @@ export class ABCsModal extends Modal {
                 // Check if template matches a pipeline (insert operation)
                 const pipelineId = this.resolvePipelineIdForTemplate(template);
                 if (pipelineId) {
-                    // Use existing ContentToDProjectsHandler for ALL pipelines
-                    // It already supports dynamic pipeline configuration via pipelineId
+                    // INTENTIONAL DESIGN:
+                    // All pipelines are routed through ContentToDProjectsHandler.
+                    // E is reserved for archiving actions only, and we keep previous file names
+                    // to avoid widespread changes. Please do not reroute pipelines here.
                     await this.handleContentToDProjects(template, pipelineId);
                     return;
                 }

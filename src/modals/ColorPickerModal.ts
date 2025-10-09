@@ -14,7 +14,13 @@ export class ColorPickerModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('h2', { text: 'Select Highlight Color' });
+		// RTL + i18n
+		const isArabic = (() => {
+			try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+		})();
+		const t = (en: string, ar: string) => isArabic ? ar : en;
+		contentEl.setAttr('dir', isArabic ? 'rtl' : 'ltr');
+		contentEl.createEl('h2', { text: t('Select Highlight Color', 'اختر لون التمييز') });
 
 		const row = contentEl.createDiv({ cls: 'color-container' });
 		this.colors.forEach((color) => {
@@ -30,7 +36,7 @@ export class ColorPickerModal extends Modal {
 		});
 
 		const buttons = contentEl.createDiv({ cls: 'button-container' });
-		const cancelButton = buttons.createEl('button', { text: 'Cancel' });
+		const cancelButton = buttons.createEl('button', { text: t('Cancel', 'إلغاء') });
 		cancelButton.addEventListener('click', () => {
 			this.resolve(null);
 			this.close();

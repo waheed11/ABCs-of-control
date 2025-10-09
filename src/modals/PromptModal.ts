@@ -17,7 +17,13 @@ export class PromptModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('h2', { text: 'Prompt' });
+		// RTL + i18n
+		const isArabic = (() => {
+			try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+		})();
+		const t = (en: string, ar: string) => isArabic ? ar : en;
+		contentEl.setAttr('dir', isArabic ? 'rtl' : 'ltr');
+		contentEl.createEl('h2', { text: t('Prompt', 'مُدخل') });
 		contentEl.createEl('p', { text: this.promptText });
 		
 		const input = contentEl.createEl('textarea', {
@@ -29,13 +35,13 @@ export class PromptModal extends Modal {
 		input.value = this.defaultValue || '';
 		
 		const buttons = contentEl.createDiv({ cls: 'button-container' });
-		const cancelButton = buttons.createEl('button', { text: 'Cancel' });
+		const cancelButton = buttons.createEl('button', { text: t('Cancel', 'إلغاء') });
 		cancelButton.addEventListener('click', () => {
 			this.resolve(null);
 			this.close();
 		});
 		
-		const submitButton = buttons.createEl('button', { text: 'Submit' });
+		const submitButton = buttons.createEl('button', { text: t('Submit', 'إرسال') });
 		submitButton.addEventListener('click', () => {
 			this.resolve(input.value);
 			this.close();

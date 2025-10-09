@@ -16,12 +16,22 @@ export class ArchiveSettingsModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('archive-settings-modal');
 
-		contentEl.createEl('h2', { text: 'Archive Settings' });
+		// RTL and translations for Arabic
+		const isArabic = (() => {
+			try {
+				const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
+				return p?.settings?.language === 'arabic';
+			} catch { return false; }
+		})();
+		const t = (en: string, ar: string) => isArabic ? ar : en;
+		contentEl.setAttr('dir', isArabic ? 'rtl' : 'ltr');
+
+		contentEl.createEl('h2', { text: t('Archive Settings', 'إعدادات الأرشفة') });
 
 		// Enable/Disable archive
 		new Setting(contentEl)
-			.setName('Enable archiving by age')
-			.setDesc('Enable the option to archive notes older than specified days (requires manual confirmation)')
+			.setName(t('Enable archiving by age', 'تفعيل الأرشفة حسب العمر'))
+			.setDesc(t('Enable the option to archive notes older than specified days (requires manual confirmation)', 'تفعيل خيار أرشفة الملاحظات الأقدم من عدد أيام محدد (يتطلب تأكيدًا يدويًا)'))
 			.addToggle(toggle => toggle
 				.setValue(this.settings.enabled)
 				.onChange(value => {
@@ -30,8 +40,8 @@ export class ArchiveSettingsModal extends Modal {
 
 		// Days setting
 		new Setting(contentEl)
-			.setName('Archive after days')
-			.setDesc('Number of days after note creation to automatically archive')
+			.setName(t('Archive after days', 'الأرشفة بعد عدد أيام'))
+			.setDesc(t('Number of days after note creation to automatically archive', 'عدد الأيام بعد إنشاء الملاحظة ليتم أرشفتها تلقائيًا'))
 			.addText(text => text
 				.setPlaceholder('30')
 				.setValue(this.settings.archiveAfterDays.toString())
@@ -44,8 +54,8 @@ export class ArchiveSettingsModal extends Modal {
 
 		// Exclude folders
 		new Setting(contentEl)
-			.setName('Exclude folders')
-			.setDesc('Comma-separated list of folders to exclude from archiving (e.g., "Templates, Daily Notes")')
+			.setName(t('Exclude folders', 'استبعاد المجلدات'))
+			.setDesc(t('Comma-separated list of folders to exclude from archiving (e.g., "Templates, Daily Notes")', 'قائمة مفصولة بفواصل للمجلدات المستبعدة من الأرشفة (مثال: "Templates, Daily Notes")'))
 			.addText(text => text
 				.setPlaceholder('Templates, Daily Notes')
 				.setValue(this.settings.excludeFolders.join(', '))
@@ -59,19 +69,22 @@ export class ArchiveSettingsModal extends Modal {
 		// Buttons
 		const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
 		
-		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
+		const cancelButton = buttonContainer.createEl('button', { text: t('Cancel', 'إلغاء') });
 		cancelButton.addEventListener('click', () => this.close());
 
-		const previewButton = buttonContainer.createEl('button', { text: 'Preview Archive' });
+		const previewButton = buttonContainer.createEl('button', { text: t('Preview Archive', 'معاينة الأرشفة') });
 		previewButton.addEventListener('click', () => this.previewArchive());
 
-		const saveButton = buttonContainer.createEl('button', { text: 'Save Settings' });
+		const saveButton = buttonContainer.createEl('button', { text: t('Save Settings', 'حفظ الإعدادات') });
 		saveButton.addEventListener('click', () => this.saveSettings());
 	}
 
 	private async previewArchive() {
 		if (!this.settings.enabled) {
-			new Notice('Enable archiving by age first');
+			const isArabic = (() => {
+				try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+			})();
+			new Notice(isArabic ? 'قم بتفعيل الأرشفة حسب العمر أولاً' : 'Enable archiving by age first');
 			return;
 		}
 
@@ -82,7 +95,10 @@ export class ArchiveSettingsModal extends Modal {
 		const filesToArchive = await archiveHandler.getFilesToArchiveByAge(this.settings);
 		
 		if (filesToArchive.length === 0) {
-			new Notice('No files found that match the archive criteria');
+			const isArabic = (() => {
+				try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+			})();
+			new Notice(isArabic ? 'لا توجد ملفات تطابق معايير الأرشفة' : 'No files found that match the archive criteria');
 			return;
 		}
 
@@ -104,12 +120,18 @@ export class ArchiveSettingsModal extends Modal {
 
 	private saveSettings() {
 		if (this.settings.archiveAfterDays <= 0) {
-			new Notice('Please enter a valid number of days');
+			const isArabic = (() => {
+				try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+			})();
+			new Notice(isArabic ? 'يرجى إدخال عدد أيام صالح' : 'Please enter a valid number of days');
 			return;
 		}
 
 		this.onSave(this.settings);
-		new Notice('Archive settings saved');
+		const isArabic = (() => {
+			try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+		})();
+		new Notice(isArabic ? 'تم حفظ إعدادات الأرشفة' : 'Archive settings saved');
 		this.close();
 	}
 }
@@ -138,10 +160,19 @@ export class ArchivePreviewModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('archive-preview-modal');
 
-		contentEl.createEl('h2', { text: 'Archive Preview' });
+		// RTL + i18n
+		const isArabic = (() => {
+			try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+		})();
+		const t = (en: string, ar: string) => isArabic ? ar : en;
+		contentEl.setAttr('dir', isArabic ? 'rtl' : 'ltr');
+
+		contentEl.createEl('h2', { text: t('Archive Preview', 'معاينة الأرشفة') });
 		
 		contentEl.createEl('p', { 
-			text: `Found ${this.filesToArchive.length} file(s) older than ${this.settings.archiveAfterDays} days. Select which files to archive to E/Archive:` 
+			text: isArabic
+				? `تم العثور على ${this.filesToArchive.length} ملف أقدم من ${this.settings.archiveAfterDays} يومًا. اختر الملفات المراد أرشفتها إلى E/Archive:`
+				: `Found ${this.filesToArchive.length} file(s) older than ${this.settings.archiveAfterDays} days. Select which files to archive to E/Archive:`
 		});
 
 		// Master "Check All" checkbox
@@ -153,7 +184,7 @@ export class ArchivePreviewModal extends Modal {
 		masterCheckbox.checked = true; // Checked by default
 		
 		const masterLabel = masterCheckboxContainer.createEl('label', {
-			text: `Check All (${this.filesToArchive.length} files)`,
+			text: isArabic ? `تحديد الكل (${this.filesToArchive.length} ملف)` : `Check All (${this.filesToArchive.length} files)`,
 			attr: { for: 'check-all-files' }
 		});
 
@@ -198,12 +229,12 @@ export class ArchivePreviewModal extends Modal {
 			fileInfo.createEl('strong', { text: file.basename });
 			fileInfo.createEl('br');
 			fileInfo.createEl('span', { 
-				text: `Path: ${file.path}`,
+				text: isArabic ? `المسار: ${file.path}` : `Path: ${file.path}`,
 				cls: 'file-path'
 			});
 			fileInfo.createEl('br');
 			fileInfo.createEl('span', { 
-				text: `Age: ${age} days`,
+				text: isArabic ? `العمر: ${age} يومًا` : `Age: ${age} days`,
 				cls: 'file-age'
 			});
 			
@@ -230,11 +261,11 @@ export class ArchivePreviewModal extends Modal {
 		// Buttons
 		const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
 		
-		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
+		const cancelButton = buttonContainer.createEl('button', { text: t('Cancel', 'إلغاء') });
 		cancelButton.addEventListener('click', () => this.close());
 
 		this.confirmButton = buttonContainer.createEl('button', { 
-			text: `Archive ${this.selectedFiles.size} file(s)`,
+			text: isArabic ? `أرشفة ${this.selectedFiles.size} ملف` : `Archive ${this.selectedFiles.size} file(s)`,
 			cls: 'mod-cta'
 		});
 		
@@ -256,7 +287,10 @@ export class ArchivePreviewModal extends Modal {
 	
 	private updateConfirmButton() {
 		if (this.confirmButton) {
-			this.confirmButton.textContent = `Archive ${this.selectedFiles.size} file(s)`;
+			const isArabic = (() => {
+				try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+			})();
+			this.confirmButton.textContent = isArabic ? `أرشفة ${this.selectedFiles.size} ملف` : `Archive ${this.selectedFiles.size} file(s)`;
 			this.confirmButton.disabled = this.selectedFiles.size === 0;
 		}
 	}

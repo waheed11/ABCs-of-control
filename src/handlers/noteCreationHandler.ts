@@ -17,13 +17,19 @@ export class NoteCreationHandler {
 		if (!selectedTemplate) return;
 		
 		contentEl.empty();
-		contentEl.createEl('h2', { text: 'Create Note' });
+		// RTL + i18n
+		const isArabic = (() => {
+			try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+		})();
+		const t = (en: string, ar: string) => isArabic ? ar : en;
+		contentEl.setAttr('dir', isArabic ? 'rtl' : 'ltr');
+		contentEl.createEl('h2', { text: t('Create Note', 'إنشاء ملاحظة') });
 		
 		// Name input
 		const nameInputContainer = contentEl.createDiv({ cls: 'name-input-container' });
 		const nameInput = nameInputContainer.createEl('input', {
 			type: 'text',
-			placeholder: 'Enter note name'
+			placeholder: t('Enter note name', 'أدخل اسم الملاحظة')
 		});
 		
 		// Optional date checkbox
@@ -33,7 +39,7 @@ export class NoteCreationHandler {
 			attr: { id: 'insert-date-checkbox' }
 		});
 		dateCheckboxContainer.createEl('label', {
-			text: 'Prepend today\'s date (YYYY-MM-DD)',
+			text: t("Prepend today's date (YYYY-MM-DD)", 'إضافة تاريخ اليوم في البداية (YYYY-MM-DD)'),
 			attr: { for: 'insert-date-checkbox' }
 		});
 		
@@ -54,15 +60,21 @@ export class NoteCreationHandler {
 			const uniquePlaceholders = [...new Set(fullTokens)];
 			
 			if (uniquePlaceholders.length > 0) {
-				placeholderSection.createEl('h3', { text: 'Template Fields' });
+				placeholderSection.createEl('h3', { text: t('Template Fields', 'حقول القالب') });
 				
-				// Reorder: tags first, then Quote (EN/AR), then Author (EN/AR), then The Permanent Note, then the rest
+				// Reorder: tags → Quote (EN/AR) → Author (EN/AR) → The permanent note → Verified → Importance → When to use → Complexity → Prompt → Source → others
 				const tagsTokens: string[] = [];
 				const quoteEnTokens: string[] = [];
 				const quoteArTokens: string[] = [];
 				const authorEnTokens: string[] = [];
 				const authorArTokens: string[] = [];
 				const permanentNoteTokens: string[] = [];
+				const verifiedTokens: string[] = [];
+				const importanceTokens: string[] = [];
+				const whenTokens: string[] = [];
+				const complexityTokens: string[] = [];
+				const promptTokens: string[] = [];
+				const sourceTokens: string[] = [];
 				const otherTokens: string[] = [];
 				
 				for (const token of uniquePlaceholders) {
@@ -70,7 +82,7 @@ export class NoteCreationHandler {
 					const displayName = inner.replace(/^VALUE\s*[:|-]?\s*/i, '');
 					const lowerCase = displayName.toLowerCase();
 					
-					if (lowerCase === 'tags') {
+					if (lowerCase === 'tags' || displayName === 'الوسم' || displayName === 'الوسوم') {
 						tagsTokens.push(token);
 					} else if (lowerCase === 'quote') {
 						quoteEnTokens.push(token);
@@ -80,8 +92,20 @@ export class NoteCreationHandler {
 						authorEnTokens.push(token);
 					} else if (displayName === 'القائل') {
 						authorArTokens.push(token);
-					} else if (lowerCase.includes('permanent note')) {
+					} else if (lowerCase.includes('permanent note') || displayName.includes('الملاحظة الدائمة')) {
 						permanentNoteTokens.push(token);
+					} else if (/\bverified\b/i.test(lowerCase) || displayName.includes('التحقق') || displayName.includes('تم التحقق')) {
+						verifiedTokens.push(token);
+					} else if (/\bimportance\b/i.test(lowerCase) || displayName.includes('الأهمية') || displayName.includes('الاهمية')) {
+						importanceTokens.push(token);
+					} else if (/when[-\s]*to[-\s]*use/i.test(lowerCase) || displayName.includes('متى الاستخدام')) {
+						whenTokens.push(token);
+					} else if (/\bcomplexity\b/i.test(lowerCase) || displayName.includes('التعقيد')) {
+						complexityTokens.push(token);
+					} else if (lowerCase.includes('prompt') || displayName.includes('المطالبة')) {
+						promptTokens.push(token);
+					} else if (lowerCase.includes('source') || displayName.includes('المصدر')) {
+						sourceTokens.push(token);
 					} else {
 						otherTokens.push(token);
 					}
@@ -94,6 +118,12 @@ export class NoteCreationHandler {
 					...authorEnTokens,
 					...authorArTokens,
 					...permanentNoteTokens,
+					...verifiedTokens,
+					...importanceTokens,
+					...whenTokens,
+					...complexityTokens,
+					...promptTokens,
+					...sourceTokens,
 					...otherTokens
 				];
 				
@@ -106,13 +136,13 @@ export class NoteCreationHandler {
 					row.createEl('label', { text: displayName });
 					
 					// Special handling based on displayName
-					if (displayNameLC === 'tags') {
+					if (displayNameLC === 'tags' || displayName === 'الوسم' || displayName === 'الوسوم') {
 						// Chips-style multi-select for tags
 						const chipsWrapper = row.createDiv({ cls: 'chips-input' });
 						const chipsList = chipsWrapper.createDiv({ cls: 'chips-list' });
 						const input = chipsWrapper.createEl('input', {
 							type: 'text',
-							placeholder: 'Add tags…'
+							placeholder: t('Add tags…', 'أضف وسوماً…')
 						});
 						const dropdown = row.createEl('ul', { cls: 'chips-suggestions' });
 						const selectedTags: string[] = [];
@@ -227,53 +257,54 @@ export class NoteCreationHandler {
 							placeholder: displayName === 'القائل' ? 'اكتب اسم المؤلف هنا' : 'Write the author here'
 						});
 						inputFields[fullToken] = input;
-					} else if (/\bimportance\b/i.test(displayName)) {
+					} else if (/\bimportance\b/i.test(displayNameLC) || displayName.includes('الأهمية') || displayName.includes('الاهمية')) {
 						const input = row.createEl('input', {
 							type: 'number',
-							placeholder: 'Importance from 1 to 5 (5 is most important)'
+							placeholder: t('Importance from 1 to 5 (5 is most important)', 'الأهمية من 1 إلى 5 (5 الأكثر أهمية)')
 						});
 						input.setAttribute('min', '1');
 						input.setAttribute('max', '5');
 						input.setAttribute('step', '1');
 						inputFields[fullToken] = input;
-					} else if (/\bcomplexity\b/i.test(displayName)) {
+					} else if (/\bcomplexity\b/i.test(displayNameLC) || displayName.includes('التعقيد')) {
 						const input = row.createEl('input', {
 							type: 'number',
-							placeholder: 'Complexity from 1 to 5'
+							placeholder: t('Complexity from 1 to 5', 'التعقيد من 1 إلى 5')
 						});
 						input.setAttribute('min', '1');
 						input.setAttribute('max', '5');
 						input.setAttribute('step', '1');
 						inputFields[fullToken] = input;
-					} else if (/when[-\s]*to[-\s]*use/i.test(displayNameLC)) {
+					} else if (/when[-\s]*to[-\s]*use/i.test(displayNameLC) || displayName.includes('متى الاستخدام')) {
 						const listId = `when-to-use-list-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
 						const input = row.createEl('input', {
 							type: 'text',
-							placeholder: 'now, today, within a week, within a month, within a year'
+							placeholder: t('now, today, within a week, within a month, within a year', 'الآن، اليوم، خلال أسبوع، خلال شهر، خلال سنة')
 						});
 						input.setAttribute('list', listId);
 						const dataList = row.createEl('datalist', { attr: { id: listId } });
-						WHEN_TO_USE_OPTIONS.forEach(option => {
+						const suggestOptions = isArabic ? ['الآن', 'اليوم', 'خلال أسبوع', 'خلال شهر', 'خلال سنة'] : WHEN_TO_USE_OPTIONS;
+						suggestOptions.forEach(option => {
 							dataList.createEl('option', { attr: { value: option } });
 						});
 						inputFields[fullToken] = input;
-					} else if (displayNameLC.includes('permanent note')) {
+					} else if (displayNameLC.includes('permanent note') || displayName.includes('الملاحظة الدائمة')) {
 						const textarea = row.createEl('textarea', {
 							attr: {
 								rows: '10',
-								placeholder: 'Write your note here'
+								placeholder: t('Write your note here', 'اكتب ملاحظتك هنا')
 							}
 						});
 						inputFields[fullToken] = textarea;
-					} else if (displayNameLC.includes('prompt')) {
+					} else if (displayNameLC.includes('prompt') || displayName.includes('المطالبة')) {
 						const textarea = row.createEl('textarea', {
 							attr: {
 								rows: '10',
-								placeholder: 'Write your prompt here'
+								placeholder: t('Write your prompt here', 'اكتب الأمر هنا')
 							}
 						});
 						inputFields[fullToken] = textarea;
-					} else if (/\bverified\b/i.test(displayName)) {
+					} else if (/\bverified\b/i.test(displayNameLC) || displayName.includes('التحقق')) {
 						const group = row.createDiv({ cls: 'radio-group' });
 						const groupName = `verified-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
 
@@ -281,31 +312,31 @@ export class NoteCreationHandler {
 						const yesInput = yesWrapper.createEl('input', { type: 'radio' });
 						yesInput.setAttribute('name', groupName);
 						yesInput.setAttribute('value', 'Yes');
-						yesWrapper.createEl('label', { text: 'Yes' });
+						yesWrapper.createEl('label', { text: t('Yes', 'نعم') });
 
 						const noWrapper = group.createDiv({ cls: 'radio-option' });
 						const noInput = noWrapper.createEl('input', { type: 'radio' });
 						noInput.setAttribute('name', groupName);
 						noInput.setAttribute('value', 'No');
-						noWrapper.createEl('label', { text: 'No' });
+						noWrapper.createEl('label', { text: t('No', 'لا') });
 
 						radioGroups[fullToken] = [yesInput, noInput];
 					} else {
 						const input = row.createEl('input', {
 							type: 'text',
-							placeholder: `Enter value for ${displayName}`
+							placeholder: isArabic ? `أدخل قيمة لـ ${displayName}` : `Enter value for ${displayName}`
 						});
 						inputFields[fullToken] = input;
 					}
 				}
-			}
+		}
 			
 			// Buttons
 			const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
-			const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
+			const cancelButton = buttonContainer.createEl('button', { text: t('Cancel', 'إلغاء') });
 			cancelButton.addEventListener('click', () => closeModal());
 			
-			const createButton = buttonContainer.createEl('button', { text: 'Create Note' });
+			const createButton = buttonContainer.createEl('button', { text: t('Create Note', 'إنشاء الملاحظة') });
 			createButton.addEventListener('click', async () => {
 				let noteName = nameInput.value.trim();
 				if (dateCheckbox.checked) {
@@ -317,7 +348,7 @@ export class NoteCreationHandler {
 					noteName = `${dateString}- ${noteName}`;
 				}
 				if (!noteName) {
-					new Notice('Please enter a note name');
+					new Notice(t('Please enter a note name', 'يرجى إدخال اسم للملاحظة'));
 					return;
 				}
 				
@@ -343,14 +374,14 @@ export class NoteCreationHandler {
 						if (/\bimportance\b/.test(tokenNameLC)) {
 							const num = Number(value);
 							if (!Number.isInteger(num) || num < 1 || num > 5) {
-								new Notice('Importance must be an integer between 1 and 5');
+								new Notice(t('Importance must be an integer between 1 and 5', 'يجب أن تكون الأهمية عددًا صحيحًا بين 1 و 5'));
 								return;
 							}
 						}
 						if (/\bcomplexity\b/.test(tokenNameLC)) {
 							const num = Number(value);
 							if (!Number.isInteger(num) || num < 1 || num > 5) {
-								new Notice('Complexity must be an integer between 1 and 5');
+								new Notice(t('Complexity must be an integer between 1 and 5', 'يجب أن يكون التعقيد عددًا صحيحًا بين 1 و 5'));
 								return;
 							}
 						}
@@ -363,7 +394,7 @@ export class NoteCreationHandler {
 			});
 		} catch (error) {
 			console.error('Error preparing unified note creation modal:', error);
-			new Notice(`Error: ${(error as Error).message}`);
+			new Notice(`${t('Error', 'خطأ')}: ${(error as Error).message}`);
 		}
 	}
 
@@ -371,6 +402,11 @@ export class NoteCreationHandler {
 	 * Create note from template with placeholder replacement
 	 */
 	async createNoteFromTemplate(selectedTemplate: TFile, noteName: string, templateContent: string, placeholderValues: Record<string, string>) {
+		// Local i18n for notices inside this method
+		const isArabic = (() => {
+			try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+		})();
+		const t = (en: string, ar: string) => isArabic ? ar : en;
 		// Replace placeholders with values
 		let finalContent = templateContent;
 		for (const [placeholder, value] of Object.entries(placeholderValues)) {
@@ -414,10 +450,10 @@ export class NoteCreationHandler {
 			// Create the note
 			await this.app.vault.create(savePath, finalContent);
 			
-			new Notice(`Note created: ${savePath}`);
+			new Notice(`${t('Note created:', 'تم إنشاء الملاحظة:')} ${savePath}`);
 		} catch (error) {
 			console.error('Error creating note:', error);
-			new Notice(`Error creating note: ${(error as Error).message}`);
+			new Notice(`${t('Error creating note:', 'حدث خطأ أثناء إنشاء الملاحظة:')} ${(error as Error).message}`);
 		}
 	}
 }

@@ -16,10 +16,19 @@ export class ArchiveProjectsModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('abcs-of-control-modal');
+        // RTL for Arabic
+        const isArabic = (() => {
+            try {
+                const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
+                return p?.settings?.language === 'arabic';
+            } catch { return false; }
+        })();
+        const t = (en: string, ar: string) => isArabic ? ar : en;
+        contentEl.setAttr('dir', isArabic ? 'rtl' : 'ltr');
 
-        contentEl.createEl('h2', { text: '📁 Archive Projects/Exams' });
+        contentEl.createEl('h2', { text: t('📁 Archive Projects/Exams', '📁 أرشفة المشاريع/الامتحانات') });
         contentEl.createEl('p', { 
-            text: 'Select D sub-folders to move to E/Archive. Templates will be moved to E/Templates.',
+            text: t('Select D sub-folders to move to E/Archive. Templates will be moved to E/Templates.', 'اختر مجلدات D لنقلها إلى E/Archive. سيتم نقل القوالب إلى E/Templates.'),
             cls: 'archive-description'
         });
 
@@ -27,8 +36,8 @@ export class ArchiveProjectsModal extends Modal {
         const dFolders = await this.scanDFolders();
 
         if (dFolders.length === 0) {
-            contentEl.createEl('p', { text: 'No projects or exams found in D folder.' });
-            const closeBtn = contentEl.createEl('button', { text: 'Close' });
+            contentEl.createEl('p', { text: t('No projects or exams found in D folder.', 'لا توجد مشاريع أو امتحانات في مجلد D.') });
+            const closeBtn = contentEl.createEl('button', { text: t('Close', 'إغلاق') });
             closeBtn.addEventListener('click', () => this.close());
             return;
         }
@@ -74,11 +83,11 @@ export class ArchiveProjectsModal extends Modal {
         // Buttons
         const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
         
-        const cancelBtn = buttonContainer.createEl('button', { text: 'Cancel' });
+        const cancelBtn = buttonContainer.createEl('button', { text: t('Cancel', 'إلغاء') });
         cancelBtn.addEventListener('click', () => this.close());
 
         const archiveBtn = buttonContainer.createEl('button', { 
-            text: 'Archive Selected',
+            text: t('Archive Selected', 'أرشفة المحدد'),
             cls: 'mod-warning'
         });
         archiveBtn.addEventListener('click', async () => {
@@ -131,18 +140,27 @@ export class ArchiveProjectsModal extends Modal {
             .filter(([_, checked]) => checked)
             .map(([path, _]) => path);
 
+        const isArabic = (() => {
+            try {
+                const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
+                return p?.settings?.language === 'arabic';
+            } catch { return false; }
+        })();
+        const t = (en: string, ar: string) => isArabic ? ar : en;
         if (selected.length === 0) {
-            new Notice('Please select at least one folder to archive');
+            new Notice(t('Please select at least one folder to archive', 'الرجاء اختيار مجلد واحد على الأقل للأرشفة'));
             return;
         }
 
         // Confirm
         const confirmed = await confirmModal(
             this.app,
-            'Archive Projects/Exams',
-            `Archive ${selected.length} folder${selected.length !== 1 ? 's' : ''} to E/Archive?\n\nThis will:\n- Move folders to E/Archive\n- Move associated templates to E/Templates`,
-            'Archive',
-            'Cancel'
+            t('Archive Projects/Exams', 'أرشفة المشاريع/الامتحانات'),
+            isArabic
+                ? `أرشفة ${selected.length} مجلد إلى E/Archive؟\n\nسيؤدي ذلك إلى:\n- نقل المجلدات إلى E/Archive\n- نقل القوالب المرتبطة إلى E/Templates`
+                : `Archive ${selected.length} folder${selected.length !== 1 ? 's' : ''} to E/Archive?\n\nThis will:\n- Move folders to E/Archive\n- Move associated templates to E/Templates`,
+            t('Archive', 'أرشفة'),
+            t('Cancel', 'إلغاء')
         );
 
         if (!confirmed) return;
@@ -163,16 +181,16 @@ export class ArchiveProjectsModal extends Modal {
             }
 
             if (successCount > 0) {
-                new Notice(`✅ Archived ${successCount} folder${successCount !== 1 ? 's' : ''}`);
+                new Notice(isArabic ? `✅ تمت أرشفة ${successCount} مجلد` : `✅ Archived ${successCount} folder${successCount !== 1 ? 's' : ''}`);
             }
             if (failCount > 0) {
-                new Notice(`❌ Failed to archive ${failCount} folder${failCount !== 1 ? 's' : ''}`);
+                new Notice(isArabic ? `❌ فشل أرشفة ${failCount} مجلد` : `❌ Failed to archive ${failCount} folder${failCount !== 1 ? 's' : ''}`);
             }
 
             this.close();
         } catch (err) {
             console.error('Archive error:', err);
-            new Notice('❌ Failed to archive folders. See console for details.');
+            new Notice(isArabic ? '❌ فشل أرشفة المجلدات. راجع وحدة التحكم للمزيد من التفاصيل.' : '❌ Failed to archive folders. See console for details.');
         }
     }
 

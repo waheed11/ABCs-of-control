@@ -17,7 +17,14 @@ export class SuggesterModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('h2', { text: this.placeholder || 'Select an option' });
+		// RTL + i18n
+		const isArabic = (() => {
+			try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
+		})();
+		const t = (en: string, ar: string) => isArabic ? ar : en;
+		contentEl.setAttr('dir', isArabic ? 'rtl' : 'ltr');
+		const headerText = this.placeholder || t('Select an option', 'اختر خيارًا');
+		contentEl.createEl('h2', { text: headerText });
 		
 		const list = contentEl.createEl('ul', { cls: 'suggester-list' });
 		this.displayTexts.forEach((text, i) => {
@@ -29,7 +36,7 @@ export class SuggesterModal extends Modal {
 			});
 		});
 		
-		const cancelButton = contentEl.createEl('button', { text: 'Cancel' });
+		const cancelButton = contentEl.createEl('button', { text: t('Cancel', 'إلغاء') });
 		cancelButton.addEventListener('click', () => {
 			this.resolve(null);
 			this.close();

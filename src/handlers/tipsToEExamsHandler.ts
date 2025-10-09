@@ -1,7 +1,7 @@
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import * as path from 'path';
 import { HeadingMeta, Selection } from '../types';
-import { ensureFolderExists, confirmModal, parseSection, compareSection, detectArabicContent, parseInsertionTemplateName  } from '../utils';
+import { ensureFolderExists, confirmModal, parseSection, compareSection, detectArabicContent, parseInsertionTemplateName, getTemplatesFolder  } from '../utils';
 import { ArchiveHandler } from './archiveHandler';
 
 export class TipsToEExamsHandler {
@@ -23,15 +23,20 @@ export class TipsToEExamsHandler {
 		const s0 = p0?.settings?.abcsPhase0;
 		const prof0 = s0?.profiles?.find((x:any)=>x.id===s0.activeProfile) || s0?.profiles?.[0];
 		const pipe0 = prof0?.pipelines?.find((x:any)=>x.id===pipelineId);
-		const prefix = pipe0?.templatePrefix || 'Tips-to-D-Exams-';
+		const lang = ((this.app as any).plugins?.plugins?.['abcs-of-control']?.settings?.language) || 'english';
+		const prefix = pipe0?.templatePrefix || (lang === 'arabic' ? 'نصائح-الى-' : 'Tips-to-');
+		// i18n helper and RTL
+		const isArabic = lang === 'arabic';
+		const t = (en: string, ar: string) => isArabic ? ar : en;
+		contentEl.setAttr('dir', isArabic ? 'rtl' : 'ltr');
 
 		// Parse templates and extract exam info using new name-based parsing
+		const templatesRoot = getTemplatesFolder(this.app) + '/';
 		const exams: { name: string; template: TFile; parsedPath: ReturnType<typeof parseInsertionTemplateName> }[] = [];
-		
 		for (const template of templates) {
-			// Only include templates located directly under C/Templates (exclude subfolders)
-			if (!template.path.startsWith('C/Templates/')) continue;
-			const relative = template.path.slice('C/Templates/'.length);
+			// Only include templates located directly under the language-specific templates root (exclude subfolders)
+			if (!template.path.startsWith(templatesRoot)) continue;
+			const relative = template.path.slice(templatesRoot.length);
 			if (relative.includes('/')) continue;
 			const parsed = parseInsertionTemplateName(template.basename, prefix);
 			if (parsed) {
@@ -52,16 +57,16 @@ export class TipsToEExamsHandler {
 		
 		let currentExam = exams.find(e => e.name === initialExamName) || exams[0];
 		if (!currentExam) {
-			new Notice('No insertion templates found.');
+			new Notice(t('No insertion templates found.', 'لم يتم العثور على قوالب إدراج.'));
 			closeModal();
 			return;
 		}
 		
 		// Create exam selection UI
-		contentEl.createEl('h2', { text: 'Add Content' });
+		contentEl.createEl('h2', { text: t('Add Content', 'إضافة محتوى') });
 		
 		const examRow = contentEl.createDiv({ cls: 'form-row' });
-		examRow.createEl('label', { text: 'Exam:' });
+		examRow.createEl('label', { text: t('Exam:', 'الامتحان:') });
 		const examSelect = examRow.createEl('select');
 		exams.forEach(exam => {
 			const option = examSelect.createEl('option');
@@ -103,7 +108,12 @@ export class TipsToEExamsHandler {
 	 * Build the exam-specific UI (headings, selections, etc.)
 	 */
 	private async buildExamUI(templateContent: string, parsedPath: { path: string; filename: string; fullPath: string; projectName: string }, contentEl: HTMLElement, closeModal: () => void, pipelineId: string) {
+		// Local i18n
+		const lang = ((this.app as any).plugins?.plugins?.['abcs-of-control']?.settings?.language) || 'english';
+		const isArabic = lang === 'arabic';
+		const t = (en: string, ar: string) => isArabic ? ar : en;
 		const examContainer = contentEl.createDiv({ cls: 'exam-content' });
+		examContainer.setAttr('dir', isArabic ? 'rtl' : 'ltr');
 		
 		// Parse headings with level and numeric section (e.g., 1.2.3)
 		const headings: string[] = [];
@@ -120,16 +130,16 @@ export class TipsToEExamsHandler {
 		}
 		
 		if (headings.length === 0) {
-			new Notice('No headings found in the template to insert under.');
+			new Notice(t('No headings found in the template to insert under.', 'لا توجد عناوين في القالب للإدراج تحتها.'));
 			closeModal();
 			return;
 		}
 		
-		examContainer.createEl('h3', { text: 'Add notes or text for a specific Heading' });
+		examContainer.createEl('h3', { text: t('Add notes or text for a specific Heading', 'إضافة ملاحظات أو نص لعنوان محدد') });
 		
 		// Heading dropdown (auto RTL/LTR per selection)
 		const headingRow = examContainer.createDiv({ cls: 'form-row' });
-		headingRow.createEl('label', { text: 'Heading:' });
+		headingRow.createEl('label', { text: t('Heading:', 'العنوان:') });
 		const headingSelect = headingRow.createEl('select');
 		headings.forEach(h => {
 			const option = headingSelect.createEl('option');
@@ -148,7 +158,7 @@ export class TipsToEExamsHandler {
 		
 		// Selections list
 		const selectedList = examContainer.createDiv({ cls: 'selected-notes' });
-		selectedList.createEl('h3', { text: 'Tips to add' });
+		selectedList.createEl('h3', { text: t('Tips to add', 'نصائح لإضافتها') });
 		
 		// Read "Include Archive" setting from pipeline configuration
 		const getIncludeArchiveFromSettings = (): boolean => {
@@ -192,7 +202,7 @@ export class TipsToEExamsHandler {
 		const inputRow = examContainer.createDiv({ cls: 'form-row' });
 		const input = inputRow.createEl('input', { 
 			type: 'text', 
-			placeholder: 'Type to search notes, press Enter to add' 
+			placeholder: t('Type to search notes, press Enter to add', 'اكتب للبحث عن الملاحظات، ثم اضغط Enter للإضافة') 
 		});
 		const suggBox = examContainer.createDiv({ cls: 'wiki-suggest-box' });
 		const suggList = suggBox.createEl('ul', { cls: 'wiki-suggest-list' });

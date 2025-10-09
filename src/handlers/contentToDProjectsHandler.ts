@@ -2,7 +2,7 @@ import { ArchiveHandler } from './archiveHandler';
 import { App, TFile, Notice, normalizePath } from 'obsidian';
 import * as path from 'path';
 import { HeadingMeta, Selection } from '../types';
-import { ensureFolderExists, parseSection, compareSection, detectArabicContent, confirmModal, parseInsertionTemplateName  } from '../utils';
+import { ensureFolderExists, parseSection, compareSection, detectArabicContent, confirmModal, parseInsertionTemplateName, getTemplatesFolder  } from '../utils';
 
 export class ContentToDProjectsHandler {
 	private app: App;
@@ -23,15 +23,22 @@ export class ContentToDProjectsHandler {
 		const s0 = p0?.settings?.abcsPhase0;
 		const prof0 = s0?.profiles?.find((x:any)=>x.id===s0.activeProfile) || s0?.profiles?.[0];
 		const pipe0 = prof0?.pipelines?.find((x:any)=>x.id===pipelineId);
-		const prefix = pipe0?.templatePrefix || 'Content-to-D-Projects-';
+		const lang = ((this.app as any).plugins?.plugins?.['abcs-of-control']?.settings?.language) || 'english';
+		const prefix = pipe0?.templatePrefix || (lang === 'arabic' ? 'محتوى-الى-' : 'Content-to-');
+
+		// i18n helper and RTL
+		const isArabic = lang === 'arabic';
+		const t = (en: string, ar: string) => isArabic ? ar : en;
+		contentEl.setAttr('dir', isArabic ? 'rtl' : 'ltr');
 
 		// Parse templates and extract project info using new name-based parsing
 		const projects: { name: string; template: TFile; parsedPath: ReturnType<typeof parseInsertionTemplateName> }[] = [];
 		
 		for (const template of templates) {
-			// Only include templates located directly under C/Templates (exclude subfolders)
-			if (!template.path.startsWith('C/Templates/')) continue;
-			const relative = template.path.slice('C/Templates/'.length);
+			// Only include templates located directly under the language-specific templates root (exclude subfolders)
+			const templatesRoot = getTemplatesFolder(this.app) + '/';
+			if (!template.path.startsWith(templatesRoot)) continue;
+			const relative = template.path.slice(templatesRoot.length);
 			if (relative.includes('/')) continue;
 			const parsed = parseInsertionTemplateName(template.basename, prefix);
 			if (parsed) {
@@ -52,16 +59,16 @@ export class ContentToDProjectsHandler {
 		
 		let currentProject = projects.find(p => p.name === initialProjectName) || projects[0];
 		if (!currentProject) {
-			new Notice('No insertion templates found.');
+			new Notice(t('No insertion templates found.', 'لم يتم العثور على قوالب إدراج.'));
 			closeModal();
 			return;
 		}
 		
 		// Create project selection UI
-		contentEl.createEl('h2', { text: 'Add Content' });
+		contentEl.createEl('h2', { text: t('Add Content', 'إضافة محتوى') });
 		
 		const projectRow = contentEl.createDiv({ cls: 'form-row' });
-		projectRow.createEl('label', { text: 'Project:' });
+		projectRow.createEl('label', { text: t('Project:', 'المشروع:') });
 		const projectSelect = projectRow.createEl('select');
 		projects.forEach(project => {
 			const option = projectSelect.createEl('option');
@@ -109,7 +116,12 @@ export class ContentToDProjectsHandler {
 		closeModal: () => void,
 		pipelineId: string
 	  ) {
+		// Local i18n
+		const lang = ((this.app as any).plugins?.plugins?.['abcs-of-control']?.settings?.language) || 'english';
+		const isArabic = lang === 'arabic';
+		const t = (en: string, ar: string) => isArabic ? ar : en;
 		const projectContainer = contentEl.createDiv({ cls: 'project-content' });
+		projectContainer.setAttr('dir', isArabic ? 'rtl' : 'ltr');
 		
 		// Parse headings with level and numeric section (e.g., 1.2.3)
 		const headings: string[] = [];
@@ -126,17 +138,17 @@ export class ContentToDProjectsHandler {
 		}
 		
 		if (headings.length === 0) {
-			new Notice('No headings found in the template to insert under.');
+			new Notice(t('No headings found in the template to insert under.', 'لا توجد عناوين في القالب للإدراج تحتها.'));
 			closeModal();
 			return;
 		}
 		
-		projectContainer.createEl('h3', { text: 'Add notes or text for a specific Heading' });
+		projectContainer.createEl('h3', { text: t('Add notes or text for a specific Heading', 'إضافة ملاحظات أو نص لعنوان محدد') });
 		
 			
 			// Heading dropdown (auto RTL/LTR per selection)
 		const headingRow = projectContainer.createDiv({ cls: 'form-row' });
-		headingRow.createEl('label', { text: 'Heading:' });
+		headingRow.createEl('label', { text: t('Heading:', 'العنوان:') });
 		const headingSelect = headingRow.createEl('select');
 		headings.forEach(h => {
 			const option = headingSelect.createEl('option');
@@ -155,7 +167,7 @@ export class ContentToDProjectsHandler {
 		
 		// Selections list
 		const selectedList = projectContainer.createDiv({ cls: 'selected-notes' });
-		selectedList.createEl('h3', { text: 'Notes to add' });
+		selectedList.createEl('h3', { text: t('Notes to add', 'ملاحظات لإضافتها') });
 		// Read "Include Archive" setting from pipeline configuration
 		const getIncludeArchiveFromSettings = (): boolean => {
 			const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
@@ -197,7 +209,7 @@ export class ContentToDProjectsHandler {
 		const inputRow = projectContainer.createDiv({ cls: 'form-row' });
 		const input = inputRow.createEl('input', { 
 			type: 'text', 
-			placeholder: 'Type to search notes, press Enter to add' 
+			placeholder: t('Type to search notes, press Enter to add', 'اكتب للبحث عن الملاحظات، ثم اضغط Enter للإضافة') 
 		});
 		const suggBox = projectContainer.createDiv({ cls: 'wiki-suggest-box' });
 		const suggList = suggBox.createEl('ul', { cls: 'wiki-suggest-list' });
@@ -298,14 +310,14 @@ export class ContentToDProjectsHandler {
 				// Text area for custom text input
 		const textAreaRow = projectContainer.createDiv({ cls: 'form-row' });
 		textAreaRow.addClass('abcs-stack');
-		textAreaRow.createEl('label', { text: 'Or add custom text:' });
+		textAreaRow.createEl('label', { text: t('Or add custom text:', 'أو أضف نصًا مخصصًا:') });
 		const textArea = textAreaRow.createEl('textarea', { 
-			placeholder: 'Enter custom text to add under the selected heading...',
+			placeholder: t('Enter custom text to add under the selected heading...', 'أدخل نصًا مخصصًا لإضافته تحت العنوان المحدد...'),
 			attr: { rows: '4' }
 		});
 		textArea.addClass('abcs-textarea');
 
-		const addTextButton = textAreaRow.createEl('button', { text: 'Add Text' });
+		const addTextButton = textAreaRow.createEl('button', { text: t('Add Text', 'إضافة النص') });
 		addTextButton.addClass('abcs-mt-5');
 		addTextButton.addEventListener('click', () => {
 			const text = textArea.value.trim();
@@ -318,17 +330,17 @@ export class ContentToDProjectsHandler {
 		const buttonContainer = projectContainer.createDiv({ cls: 'button-container' });
 
 		// Close button
-		const cancelButton = buttonContainer.createEl('button', { text: 'Close' });
+		const cancelButton = buttonContainer.createEl('button', { text: t('Close', 'إغلاق') });
 		cancelButton.addEventListener('click', () => closeModal());
 
 		// 3) Insert (primary/violet, right)
-		const insertButton = buttonContainer.createEl('button', { text: 'Insert into Content', cls: 'mod-cta' });
+		const insertButton = buttonContainer.createEl('button', { text: t('Insert into Content', 'إدراج في المحتوى'), cls: 'mod-cta' });
 		insertButton.addEventListener('click', async () => {
 			if (textArea && textArea.value && textArea.value.trim().length > 0) {
-				new Notice('You have custom text typed. Click "Add Text" to include it before inserting, or clear the field.');
+				new Notice(t('You have custom text typed. Click "Add Text" to include it before inserting, or clear the field.', 'لديك نص مخصص مكتوب. انقر "إضافة النص" لإدراجه قبل الإضافة، أو امسح الحقل.'));
 				return;
 			}
-			if (selections.length === 0) { new Notice('Add at least one note or text first.'); return; }
+			if (selections.length === 0) { new Notice(t('Add at least one note or text first.', 'أضف ملاحظة واحدة أو نصًا على الأقل أولاً.')); return; }
 			const targetPath = parsedPath.fullPath;
 			await ensureFolderExists(this.app, path.dirname(targetPath));
 			const existing = this.app.vault.getAbstractFileByPath(targetPath);
@@ -374,9 +386,9 @@ export class ContentToDProjectsHandler {
 				else if (s.type === 'text' && s.text) ensureHeadingAndAppend(s.heading, `- ${s.text}`);
 			}
 			await this.app.vault.modify(targetFile, lines.join('\n'));
-			new Notice(`Inserted ${selections.length} item(s) into ${targetPath}`);
+			new Notice(isArabic ? `تم إدراج ${selections.length} عنصر(عناصر) في ${targetPath}` : `Inserted ${selections.length} item(s) into ${targetPath}`);
 			selections.length = 0; listEl.empty(); input.value = ''; textArea.value = '';
-			new Notice(`✅ Content added to ${parsedPath.projectName}! You can now switch projects or add more content.`);
+			new Notice(isArabic ? `✅ تم إضافة المحتوى إلى ${parsedPath.projectName}! يمكنك الآن تبديل المشاريع أو إضافة المزيد من المحتوى.` : `✅ Content added to ${parsedPath.projectName}! You can now switch projects or add more content.`);
 		});
 		}		
 		private filterNotes(notes: TFile[], includeArchive: boolean = false): TFile[] {

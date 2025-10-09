@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Plugin, MarkdownFileInfo } from 'obsidian';
+import { App, Editor, MarkdownView, Plugin, MarkdownFileInfo, Notice } from 'obsidian';
 import { ABCsOfControlSettings, SettingsRoot } from './types';
 import { DEFAULT_SETTINGS } from './constants';
 import { ABCsModal } from './modals/ABCsModal';
@@ -6,9 +6,8 @@ import { ABCsSettingTab } from './settings';
 import { HighlightHandler } from './handlers/highlightHandler';
 import { QuoteHandler } from './handlers/quoteHandler';
 import { ensureFolderExists } from './utils';
-import { createTemplateExamples } from './templateExamples';
+import { createTemplateExamples, createArabicTemplateExamples } from './templateExamples';
 import { registerIcons, ABCS_ICON_ID } from './icons';
-
 export default class ABCsOfControlPlugin extends Plugin {
     settings: ABCsOfControlSettings;
 	private highlightHandler: HighlightHandler;
@@ -16,6 +15,10 @@ export default class ABCsOfControlPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		// Ensure default Phase 0 config exists (pipelines, roles)
+		this.ensurePhase0Defaults();
+		// Align pipeline prefixes with selected language
+		this.adjustPipelinePrefixesForLanguage();
 		await this.ensureRequiredFolders();
 		await this.saveSettings();
 		
@@ -93,6 +96,7 @@ export default class ABCsOfControlPlugin extends Plugin {
 		if (this.settings.abcsPhase0) return;
 
 		const defaultProfileId = 'default';
+		const lang = this.settings?.language || 'english';
 
 		const defaultSettings: SettingsRoot = {
 			activeProfile: defaultProfileId,
@@ -103,8 +107,8 @@ export default class ABCsOfControlPlugin extends Plugin {
 					id: defaultProfileId,
 					label: 'Default',
 					roles: {
-						A: ['A'],
-						B: ['B'],
+						A: lang === 'arabic' ? ['أ'] : ['A'],
+						B: lang === 'arabic' ? ['ب'] : ['B'],
 						D: ['D/Projects', 'D/Exams'],
 						E: 'E/Archive',
 					},
@@ -159,12 +163,62 @@ export default class ABCsOfControlPlugin extends Plugin {
 	}
 
 	/**
+	 * Keep default pipeline prefixes in sync with selected language.
+	 * Does not override user-custom prefixes.
+	 */
+	private adjustPipelinePrefixesForLanguage() {
+		const lang = this.settings?.language || 'english';
+		const root = this.settings.abcsPhase0;
+		if (!root) return;
+		const prof = root.profiles.find((p: any) => p.id === root.activeProfile) || root.profiles[0];
+		if (!prof || !prof.pipelines) return;
+
+		const wantContent = (lang === 'arabic') ? 'محتوى-الى-' : 'Content-to-';
+		const wantTips = (lang === 'arabic') ? 'نصائح-الى-' : 'Tips-to-';
+		for (const pipe of prof.pipelines) {
+			if (pipe.id === 'content-to-d-projects') {
+				if (pipe.templatePrefix === 'Content-to-' || pipe.templatePrefix === 'محتوى-الى-') {
+					pipe.templatePrefix = wantContent;
+				}
+			}
+			if (pipe.id === 'tips-to-d-exams') {
+				if (pipe.templatePrefix === 'Tips-to-' || pipe.templatePrefix === 'نصائح-الى-') {
+					pipe.templatePrefix = wantTips;
+				}
+			}
+		}
+	}
+	/**
 	 * Ensure mandatory C/Templates folder exists (hardcoded location)
 	 */
 	private async ensureRequiredFolders() {
-		// Always create C/Templates regardless of settings
-		await ensureFolderExists(this.app, 'C/Templates');
-		// Create Templates Examples folder and populate with example templates
-		await createTemplateExamples(this.app);
+		const lang = this.settings?.language || 'english';
+		if (lang === 'arabic') {
+			await ensureFolderExists(this.app, 'ت/القوالب');
+			await ensureFolderExists(this.app, 'ت/القوالب/أمثلة على القوالب');
+			await createArabicTemplateExamples(this.app);
+		} else {
+			await ensureFolderExists(this.app, 'C/Templates');
+			await createTemplateExamples(this.app);
+		}
 	}
+
+	/**
+	 * Public: Apply setup for the current language without requiring reload.
+	 * - Sync pipeline prefixes for the selected language
+	 * - Ensure templates folders exist and seed examples if missing
+	 * - Persist settings
+	 */
+	public async applyLanguageSetup(): Promise<void> {
+		try {
+			this.adjustPipelinePrefixesForLanguage();
+			await this.ensureRequiredFolders();
+			await this.saveSettings();
+			new Notice('Language setup applied');
+		} catch (err) {
+			console.error('Failed to apply language setup:', err);
+			new Notice('Failed to apply language setup. Check console for details.');
+		}
+	}
+
 }
