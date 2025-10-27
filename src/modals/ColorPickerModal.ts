@@ -14,6 +14,7 @@ export class ColorPickerModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
+		contentEl.addClass('color-picker-modal');
 		contentEl.createEl('h2', { text: 'Select Highlight Color' });
 
 		const row = contentEl.createDiv({ cls: 'color-container' });
