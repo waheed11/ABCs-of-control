@@ -45,27 +45,27 @@ export default class ABCsOfControlPlugin extends Plugin {
 			this.app.workspace.on('editor-menu', (menu, editor, view) => {
 				if (editor.getSelection().length > 0) {
 					menu.addItem((item) => {
-						item.setTitle('ABCs: Highlight')
+						item.setTitle('ABCs: highlight')
 							.setIcon('highlighter')
 							.onClick(() => this.highlightHandler.handleHighlight(editor, view));
 					});
 
 					menu.addItem((item) => {
-						item.setTitle('ABCs: Copy Highlight')
+						item.setTitle('ABCs: copy highlight')
 							.setIcon('copy')
 							.onClick(() => this.highlightHandler.handleCopyHighlight(editor, view));
 					});
 
 					if (this.highlightHandler.getCopiedHighlight()) {
 						menu.addItem((item) => {
-							item.setTitle('ABCs: Paste Highlight')
+							item.setTitle('ABCs: paste highlight')
 								.setIcon('paste')
 								.onClick(() => this.highlightHandler.handlePasteHighlight(editor, view));
 						});
 					}
 
 					menu.addItem((item) => {
-						item.setTitle('ABCs: Quote')
+						item.setTitle('ABCs: quote')
 							.setIcon('quote')
 							.onClick(() => this.quoteHandler.handleQuote(editor, view));
 					});

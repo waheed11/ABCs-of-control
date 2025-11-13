@@ -95,7 +95,7 @@ export class ContentToDProjectsHandler {
 		});
 		
 		// Load initial project
-		loadProject(currentProject.name);
+		await loadProject(currentProject.name);
 	}
     
     /**
@@ -321,7 +321,7 @@ export class ContentToDProjectsHandler {
 		const insertButton = buttonContainer.createEl('button', { text: 'Insert into content', cls: 'mod-cta' });
 		insertButton.addEventListener('click', () => { void (async () => {
 			if (textArea && textArea.value && textArea.value.trim().length > 0) {
-				new Notice('You have custom text typed. Click "Add text" to include it before inserting, or clear the field.');
+				new Notice('You have custom text typed. Click Add text to include it before inserting, or clear the field.');
 				return;
 			}
 			if (selections.length === 0) {

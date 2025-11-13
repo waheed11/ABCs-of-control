@@ -183,13 +183,13 @@ function scanCTemplates(app: App, templateMap: Map<string, TFile[]>): void {
 		const prof = s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0];
 		if (prof?.pipelines) {
 			// Collect all pipeline prefixes and their target letters
-			for (const pipe of prof.pipelines as PipelineConfig[]) {
-				if (pipe.templatePrefix && pipe.targetPath) {
+			for (const pipeline of prof.pipelines) {
+				if (pipeline.templatePrefix && pipeline.targetPath) {
 					// Extract the first letter from the target path (e.g., "D/P/{project}/Test.md" -> "D")
-					const targetLetter = pipe.targetPath.charAt(0).toUpperCase();
+					const targetLetter = pipeline.targetPath.charAt(0).toUpperCase();
 					if (ALPHABET.includes(targetLetter)) {
 						allPipelines.push({
-							prefix: pipe.templatePrefix,
+							prefix: pipeline.templatePrefix,
 							targetLetter: targetLetter
 						});
 					}

@@ -136,7 +136,7 @@ export class ArchiveProjectsModal extends Modal {
         // Confirm
         const confirmed = await confirmModal(
             this.app,
-            'Archive Projects/Exams',
+            'Archive projects/exams',
             `Archive ${selected.length} folder${selected.length !== 1 ? 's' : ''} to E/Archive?\n\nThis will:\n- Move folders to E/Archive\n- Move associated templates to E/Templates`,
             'Archive',
             'Cancel'

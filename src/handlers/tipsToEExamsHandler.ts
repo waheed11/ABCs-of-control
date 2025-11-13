@@ -317,7 +317,7 @@ export class TipsToEExamsHandler {
 		insertButton.addEventListener('click', () => { void (async () => {
 			// Prevent losing typed custom text if user forgot to click "Add Text"
 			if (textArea && textArea.value && textArea.value.trim().length > 0) {
-				new Notice('You have custom text typed. Click "Add text" to include it before inserting, or clear the field.');
+				new Notice('You have custom text typed. Click Add text to include it before inserting, or clear the field.');
 				return;
 			}
 			if (selections.length === 0) { 

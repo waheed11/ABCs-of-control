@@ -24,7 +24,7 @@ export class HighlightHandler {
 
 		const file = getFileFromView(view);
 		if (!file) {
-			new Notice('Cannot highlight: No file is open');
+			new Notice('Cannot highlight: no file is open');
 			return;
 		}
 
@@ -80,7 +80,7 @@ export class HighlightHandler {
 		
 		const file = getFileFromView(view);
 		if (!file) {
-			new Notice('Cannot paste highlight: No file is open');
+			new Notice('Cannot paste highlight: no file is open');
 			return;
 		}
 		

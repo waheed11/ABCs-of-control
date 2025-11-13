@@ -13,7 +13,7 @@ export class ABCsSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 		new Setting(containerEl)
-			.setName('ABCs of Control settings')
+			.setName('General')
 			.setHeading();
 
 		new Setting(containerEl)
@@ -164,13 +164,13 @@ export class ABCsSettingTab extends PluginSettingTab {
 						.setName(`${p.label || p.id}`)
 						.setHeading();
 					headerSetting.addButton((btn) => {
-						btn.setButtonText('🗑️ Delete');
+						btn.setButtonText('🗑️ Delete pipeline');
 						btn.buttonEl.classList.add('mod-warning');
 						btn.onClick(() => { void (async () => {
 							const { confirmModal } = await import('./utils');
 							const confirmed = await confirmModal(
 								this.app,
-								'Delete Pipeline',
+								'Delete pipeline',
 								`Delete pipeline "${p.label}"? This cannot be undone.`,
 								'Delete',
 								'Cancel'
@@ -200,7 +200,7 @@ export class ABCsSettingTab extends PluginSettingTab {
 					.setName('Label')
 					.setDesc('Display name for this pipeline')
 					.addText(t => {
-						t.setPlaceholder('My Custom Pipeline');
+						t.setPlaceholder('My custom pipeline');
 						t.setValue(p.label || '');
 						t.onChange((val) => {
 							const prof2 = phase0.profiles.find((p2: Profile) => p2.id === phase0.activeProfile) || phase0.profiles[0];

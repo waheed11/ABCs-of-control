@@ -140,7 +140,7 @@ export class ArchivePreviewModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('archive-preview-modal');
 
-		contentEl.createEl('h2', { text: 'Archive Preview' });
+		contentEl.createEl('h2', { text: 'Archive preview' });
 		
 		contentEl.createEl('p', { 
 			text: `Found ${this.filesToArchive.length} file(s) older than ${this.settings.archiveAfterDays} days. Select which files to archive to E/Archive:` 
@@ -155,7 +155,7 @@ export class ArchivePreviewModal extends Modal {
 		masterCheckbox.checked = true; // Checked by default
 		
 		masterCheckboxContainer.createEl('label', {
-			text: `Check All (${this.filesToArchive.length} files)`,
+			text: `Check all (${this.filesToArchive.length} files)`,
 			attr: { for: 'check-all-files' }
 		});
 

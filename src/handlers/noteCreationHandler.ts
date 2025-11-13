@@ -306,7 +306,7 @@ export class NoteCreationHandler {
 			const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
 			cancelButton.addEventListener('click', () => closeModal());
 			
-			const createButton = buttonContainer.createEl('button', { text: 'Create Note' });
+			const createButton = buttonContainer.createEl('button', { text: 'Create note' });
 			createButton.addEventListener('click', () => { void (async () => {
 				let noteName = nameInput.value.trim();
 				if (dateCheckbox.checked) {
@@ -326,7 +326,10 @@ export class NoteCreationHandler {
 				for (const fullToken of Object.keys({ ...inputFields, ...radioGroups, ...customResolvers })) {
 					let value = '';
 					if (fullToken in customResolvers) {
-						value = customResolvers[fullToken]!();
+						const resolver = customResolvers[fullToken];
+						if (typeof resolver === 'function') {
+							value = resolver();
+						}
 					} else if (fullToken in inputFields) {
 						value = inputFields[fullToken].value.trim();
 					} else if (fullToken in radioGroups) {

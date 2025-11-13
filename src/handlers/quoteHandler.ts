@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, MarkdownFileInfo, TFile, Notice } from 'obsidian';
+import { App, Editor, MarkdownView, MarkdownFileInfo , Notice } from 'obsidian';
 import { SECTION_HEADERS } from '../constants';
 import { getFileFromView, detectArabicContent } from '../utils';
 
@@ -18,7 +18,7 @@ export class QuoteHandler {
 
 		const file = getFileFromView(view);
 		if (!file) {
-			new Notice('Cannot add quote: No file is open');
+			new Notice('Cannot add quote: no file is open');
 			return;
 		}
 
