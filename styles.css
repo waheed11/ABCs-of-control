@@ -298,6 +298,24 @@ If your plugin does not need CSS, delete this file.
     background-color: var(--background-secondary);
 }
 
+/* Color picker layout */
+.color-container {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.color-swatch {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--background-modifier-border);
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
 .abcs-phase0-help {
     margin-top: 20px;
     padding: 15px;

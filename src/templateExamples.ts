@@ -194,6 +194,10 @@ aliases:
 Use the following citation format:
 {{VALUE:ai tool}}-{{VALUE:ai tool version}}, response to *"{{VALUE:prompt}}"*, {{VALUE:company}}, {{VALUE:date in Month dd, yyyy}}
 
+***
+
+## ✒ The Permanent Notes
+
 `
 		},
 		{
@@ -679,6 +683,11 @@ aliases:
 (تحويل النقاط البارزة إلى اقتباسات إذا لزم الأمر)
 استخدم تنسيق الاقتباس التالي:
 {{VALUE:أداة الذكاء الاصطناعي}}-{{VALUE:الاصدار}},رداً على *"{{VALUE:المطالبة}}"*, {{VALUE:الشركة}}, {{VALUE:التاريخ على شكل  Month dd, yyyy}}
+
+***
+
+## ✒ الملاحظات الدائمة
+
 `
         },
         {

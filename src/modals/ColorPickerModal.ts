@@ -14,13 +14,14 @@ export class ColorPickerModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
+		contentEl.addClass('color-picker-modal');
 		// RTL + i18n
 		const isArabic = (() => {
 			try { const p = (this.app as any).plugins?.plugins?.['abcs-of-control']; return p?.settings?.language === 'arabic'; } catch { return false; }
 		})();
 		const t = (en: string, ar: string) => isArabic ? ar : en;
 		contentEl.setAttr('dir', isArabic ? 'rtl' : 'ltr');
-		contentEl.createEl('h2', { text: t('Select Highlight Color', 'اختر لون التمييز') });
+		contentEl.createEl('h2', { text: t('Select Highlight Color', 'اختر لون التحديد') });
 
 		const row = contentEl.createDiv({ cls: 'color-container' });
 		this.colors.forEach((color) => {
