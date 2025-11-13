@@ -1,5 +1,4 @@
 import { App, Modal, Notice, TFolder, TFile, normalizePath } from 'obsidian';
-import { ArchiveHandler } from '../handlers/archiveHandler';
 import { ensureFolderExists, confirmModal } from '../utils';
 
 /**
@@ -12,19 +11,19 @@ export class ArchiveProjectsModal extends Modal {
         super(app);
     }
 
-    async onOpen() {
+    onOpen(): void {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('abcs-of-control-modal');
 
-        contentEl.createEl('h2', { text: '📁 Archive Projects/Exams' });
+        contentEl.createEl('h2', { text: '📁 Archive projects/exams' });
         contentEl.createEl('p', { 
             text: 'Select D sub-folders to move to E/Archive. Templates will be moved to E/Templates.',
             cls: 'archive-description'
         });
 
         // Scan D folder for sub-folders
-        const dFolders = await this.scanDFolders();
+        const dFolders = this.scanDFolders();
 
         if (dFolders.length === 0) {
             contentEl.createEl('p', { text: 'No projects or exams found in D folder.' });
@@ -78,15 +77,13 @@ export class ArchiveProjectsModal extends Modal {
         cancelBtn.addEventListener('click', () => this.close());
 
         const archiveBtn = buttonContainer.createEl('button', { 
-            text: 'Archive Selected',
+            text: 'Archive selected',
             cls: 'mod-warning'
         });
-        archiveBtn.addEventListener('click', async () => {
-            await this.handleArchive();
-        });
+        archiveBtn.addEventListener('click', () => { void this.handleArchive(); });
     }
 
-    private async scanDFolders(): Promise<TFolder[]> {
+    private scanDFolders(): TFolder[] {
         const folders: TFolder[] = [];
         
         // Start from D root and scan recursively
@@ -148,7 +145,6 @@ export class ArchiveProjectsModal extends Modal {
         if (!confirmed) return;
 
         try {
-            const archiveHandler = new ArchiveHandler(this.app);
             let successCount = 0;
             let failCount = 0;
 
@@ -245,7 +241,7 @@ export class ArchiveProjectsModal extends Modal {
         }
     }
 
-    onClose() {
+    onClose(): void {
         const { contentEl } = this;
         contentEl.empty();
     }

@@ -1,5 +1,5 @@
 import { App, Editor, MarkdownView, MarkdownFileInfo, TFile, Notice } from 'obsidian';
-import { HighlightData } from '../types';
+import { HighlightData, ABCsOfControlSettings } from '../types';
 import { SECTION_HEADERS, HIGHLIGHT_COLORS } from '../constants';
 import { getFileFromView, detectArabicContent } from '../utils';
 import { ColorPickerModal } from '../modals/ColorPickerModal';
@@ -7,10 +7,10 @@ import { PromptModal } from '../modals/PromptModal';
 
 export class HighlightHandler {
 	private app: App;
-	private settings: any;
+	private settings: ABCsOfControlSettings;
 	private copiedHighlight: HighlightData | null = null;
 
-	constructor(app: App, settings: any) {
+	constructor(app: App, settings: ABCsOfControlSettings) {
 		this.app = app;
 		this.settings = settings;
 	}

@@ -58,7 +58,7 @@ export interface SearchConfig {
 	includeArchive: boolean;
 	tagsAny?: string[];
 	tagsAll?: string[];
-	frontmatter?: Record<string, any>;
+	frontmatter?: Record<string, unknown>;
 	maxResults?: number;
 }
 
@@ -114,4 +114,9 @@ export interface SettingsRoot {
 	version: number;
 	safety: { dryRun: boolean; confirmMoves: boolean };
 	i18n?: { language?: string; rtl?: boolean };
+}
+
+export interface ABCsOfControlPluginAPI {
+    settings: ABCsOfControlSettings;
+    saveSettings: () => Promise<void>;
 }

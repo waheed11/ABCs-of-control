@@ -1,12 +1,12 @@
 import { App, Modal } from 'obsidian';
 
 export class SuggesterModal extends Modal {
-	private resolve: (value: any) => void;
+	private resolve: (value: unknown) => void;
 	private displayTexts: string[];
-	private values: any[];
+	private values: unknown[];
 	private placeholder: string;
 
-	constructor(app: App, displayTexts: string[], values: any[], placeholder: string, resolve: (value: any) => void) {
+	constructor(app: App, displayTexts: string[], values: unknown[], placeholder: string, resolve: (value: unknown) => void) {
 		super(app);
 		this.displayTexts = displayTexts;
 		this.values = values;

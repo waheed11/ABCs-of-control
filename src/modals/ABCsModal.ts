@@ -1,14 +1,13 @@
-import { App, Modal, TFile, Notice, normalizePath } from 'obsidian';
-import { HeadingMeta, Selection } from '../types';
-import { WHEN_TO_USE_OPTIONS } from '../constants';
-import { getTemplateFiles, ensureFolderExists, parseSection, compareSection, detectArabicContent } from '../utils';
+import { App, Modal, TFile } from 'obsidian';
+import { ABCsOfControlPluginAPI, Profile, PipelineConfig } from '../types';
+import { getTemplateFiles } from '../utils';
 import { ContentToDProjectsHandler } from '../handlers/contentToDProjectsHandler';
 import { NoteCreationHandler } from '../handlers/noteCreationHandler';
 import { TipsToEExamsHandler } from '../handlers/tipsToEExamsHandler';
 import { ArchiveHandler } from '../handlers/archiveHandler';
 
 export class ABCsModal extends Modal {
-	plugin: any; // Will be properly typed when we refactor the main plugin
+	plugin: ABCsOfControlPluginAPI;
 	templateMap: Map<string, TFile[]> = new Map();
 	selectedTemplate: TFile | null = null;
 	private contentToDProjectsHandler: ContentToDProjectsHandler;
@@ -17,7 +16,7 @@ export class ABCsModal extends Modal {
 	private noteCreationHandler: NoteCreationHandler;
 	private resizeHandler?: () => void;
 
-	constructor(app: App, plugin: any) {
+	constructor(app: App, plugin: ABCsOfControlPluginAPI) {
 		super(app);
 		this.plugin = plugin;
 		this.contentToDProjectsHandler = new ContentToDProjectsHandler(app);
@@ -26,7 +25,7 @@ export class ABCsModal extends Modal {
 		this.noteCreationHandler = new NoteCreationHandler(app);
 	}
 	
-	async onOpen() {
+	onOpen(): void {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('abcs-of-control-modal');
@@ -35,7 +34,7 @@ export class ABCsModal extends Modal {
         contentEl.createEl('h2', { text: 'ABCs of Control' });
         
         // Load template files from configurable templates folder
-        this.templateMap = await getTemplateFiles(this.app);
+        this.templateMap = getTemplateFiles(this.app);
         
         // Create ABCs UI based on the wireframe
         const abcContainer = contentEl.createDiv({ cls: 'abc-container' });
@@ -60,7 +59,7 @@ export class ABCsModal extends Modal {
 
         // Support footer (unobtrusive)
         const footer = contentEl.createDiv({ cls: 'abcs-support-footer' });
-        const label = footer.createEl('span', { text: 'Support: ' });
+        footer.createEl('span', { text: 'Support: ' });
         const sponsors = footer.createEl('a', { text: 'GitHub Sponsors' });
         sponsors.setAttr('href', 'https://github.com/sponsors/waheed11');
         sponsors.setAttr('target', '_blank');
@@ -71,7 +70,7 @@ export class ABCsModal extends Modal {
         coffee.setAttr('target', '_blank');
         coffee.setAttr('rel', 'noopener');
     }
-    onClose() {
+    onClose(): void {
         if (this.resizeHandler) {
           window.removeEventListener('resize', this.resizeHandler);
           this.resizeHandler = undefined;
@@ -86,7 +85,8 @@ export class ABCsModal extends Modal {
         letterBubble.createDiv({ cls: 'letter', text: letter });
         
         // Check if templates exist for this letter
-        const hasTemplates = (this.templateMap.get(letter) ?? []).length > 0;
+        const hasTemplatesArr: TFile[] = this.templateMap.get(letter) ?? [];
+        const hasTemplates = hasTemplatesArr.length > 0;
         
         // Make E clickable even if it has no templates (to show Archive actions)
         // Others remain clickable only if templates exist
@@ -101,42 +101,40 @@ export class ABCsModal extends Modal {
     }
     // Resolve active Phase 0 pipeline by matching templatePrefix against a clicked template's basename
     private resolvePipelineIdForTemplate(template: TFile): string | null {
-        const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
-        const s = p?.settings?.abcsPhase0;
+        const s = this.plugin.settings.abcsPhase0;
         if (!s) return null;
-        const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+        const prof = s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0];
         const basename = template.basename;
-    
-        for (const pipe of prof.pipelines || []) {
-        if (pipe?.templatePrefix && basename.startsWith(pipe.templatePrefix)) {
-            return pipe.id;
-        }
+        for (const pipe of prof?.pipelines || []) {
+            if (pipe?.templatePrefix && basename.startsWith(pipe.templatePrefix)) {
+                return pipe.id;
+            }
         }
         return null;
     }
-    private getActivePipelineById(pipelineId: string): any | null {
-        const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
-        const s = p?.settings?.abcsPhase0;
+    private getActivePipelineById(pipelineId: string): PipelineConfig | null {
+        const s = this.plugin.settings.abcsPhase0;
         if (!s) return null;
-        const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
-        return (prof?.pipelines || []).find((x: any) => x.id === pipelineId) || null;
+        const prof = s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0];
+        const pipelines: PipelineConfig[] = prof?.pipelines ?? [];
+        return pipelines.find((x) => x.id === pipelineId) ?? null;
       }
     // Convenience: get a pipeline config by id (useful if you later want more than id)
-    private getPipelineById(pipelineId: string): any | null {
-        const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
-        const s = p?.settings?.abcsPhase0;
+    private getPipelineById(pipelineId: string): PipelineConfig | null {
+        const s = this.plugin.settings.abcsPhase0;
         if (!s) return null;
-        const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
-        return (prof?.pipelines || []).find((x: any) => x.id === pipelineId) || null;
+        const prof = s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0];
+        const pipelines: PipelineConfig[] = prof?.pipelines ?? [];
+        return pipelines.find((x) => x.id === pipelineId) ?? null;
     }
-    async showTemplatesForLetter(letter: string) {
+    showTemplatesForLetter(letter: string) {
         const { contentEl } = this;
         const templateListContainer = contentEl.querySelector('.template-list-container');
         if (!templateListContainer) return;
         
         templateListContainer.empty();
         
-        const templates = this.templateMap.get(letter) || [];
+        const templates: TFile[] = this.templateMap.get(letter) ?? [];
 
         const templateList = templateListContainer.createEl('ul', { cls: 'template-list' });
 
@@ -144,30 +142,30 @@ export class ABCsModal extends Modal {
         if (letter === 'E') {
             const archiveItem = templateList.createEl('li');
             const archiveButton = archiveItem.createEl('button', { 
-                text: '📦 Archive #archived Notes',
+                text: '📦 Archive #archived notes',
                 cls: 'archive-now-button'
             });
-            archiveButton.addEventListener('click', async () => {
+            archiveButton.addEventListener('click', () => { void (async () => {
                 await this.archiveHandler.archiveTaggedNotes();
-            });
+            })(); });
 
             const projectsItem = templateList.createEl('li');
             const projectsButton = projectsItem.createEl('button', { 
-                text: '📁 Archive Projects/Exams',
+                text: '📁 Archive projects/exams',
                 cls: 'archive-projects-button'
             });
-            projectsButton.addEventListener('click', async () => {
+            projectsButton.addEventListener('click', () => { void (async () => {
                 const { ArchiveProjectsModal } = await import('./ArchiveProjectsModal');
                 const modal = new ArchiveProjectsModal(this.app);
                 modal.open();
-            });
+            })(); });
 
             const settingsItem = templateList.createEl('li');
             const settingsButton = settingsItem.createEl('button', { 
-                text: '⚙️ Archive Settings',
+                text: '⚙️ Archive settings',
                 cls: 'archive-settings-button'
             });
-            settingsButton.addEventListener('click', async () => {
+            settingsButton.addEventListener('click', () => { void (async () => {
                 const { ArchiveSettingsModal } = await import('./ArchiveSettingsModal');
                 const tplFolder = this.plugin.settings.templateFolderPath || 'C/Templates';
                 const currentSettings = this.plugin.settings.archiveSettings || {
@@ -180,11 +178,11 @@ export class ABCsModal extends Modal {
                     currentSettings,
                     (newSettings) => {
                         this.plugin.settings.archiveSettings = newSettings;
-                        this.plugin.saveSettings();
+                        void this.plugin.saveSettings();
                     }
                 );
                 modal.open();
-            });
+            })(); });
         }
 
         // If no templates: for E, just return silently (actions above already shown). For others, show a message.
@@ -199,28 +197,23 @@ export class ABCsModal extends Modal {
             const listItem = templateList.createEl('li');
             const templateButton = listItem.createEl('button', { text: template.basename });
             
-            templateButton.addEventListener('click', async () => {
+            templateButton.addEventListener('click', () => { void (async () => {
                 this.selectedTemplate = template;
                 
-                // Check if template matches a pipeline (insert operation)
                 const pipelineId = this.resolvePipelineIdForTemplate(template);
                 if (pipelineId) {
-                    // Use existing ContentToDProjectsHandler for ALL pipelines
-                    // It already supports dynamic pipeline configuration via pipelineId
                     await this.handleContentToDProjects(template, pipelineId);
                     return;
                 }
-                
-                // Default: create note from template (for non-pipeline templates)
                 this.promptForNoteCreation();
-            });
+            })(); });
         }
     }
 
 	promptForNoteCreation() {
         if (!this.selectedTemplate) return;
         
-        this.noteCreationHandler.promptForNoteCreation(
+        void this.noteCreationHandler.promptForNoteCreation(
             this.selectedTemplate,
             this.contentEl,
             () => this.close()
@@ -298,7 +291,7 @@ private drawArrows(abcContainer: HTMLElement, cells: Record<string, HTMLElement>
   
     const containerRect = abcContainer.getBoundingClientRect();
     const centerOf = (cell: HTMLElement) => {
-      const bubble = cell.querySelector('.letter-bubble') as HTMLElement | null;
+      const bubble = cell.querySelector('.letter-bubble');
       const r = (bubble ?? cell).getBoundingClientRect();
       return { x: r.left - containerRect.left + r.width / 2, y: r.top - containerRect.top + r.height / 2 };
     };

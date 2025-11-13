@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Plugin, MarkdownFileInfo } from 'obsidian';
+import { Plugin } from 'obsidian';
 import { ABCsOfControlSettings, SettingsRoot } from './types';
 import { DEFAULT_SETTINGS } from './constants';
 import { ABCsModal } from './modals/ABCsModal';
@@ -33,7 +33,7 @@ export default class ABCsOfControlPlugin extends Plugin {
 
 		// Add a command to open the ABCs modal
 		this.addCommand({
-			id: 'start-abcs-of-control',
+			id: 'open-modal',
 			name: 'Open modal',
 			callback: () => {
 				new ABCsModal(this.app, this).open();
@@ -152,7 +152,7 @@ export default class ABCsOfControlPlugin extends Plugin {
 					],
 				},
 			],
-			i18n: { language: (this.settings?.language as string) || undefined, rtl: false },
+			i18n: { language: this.settings.language, rtl: false },
 		};
 
 		this.settings.abcsPhase0 = defaultSettings;

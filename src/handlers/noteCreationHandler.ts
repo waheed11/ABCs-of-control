@@ -17,7 +17,7 @@ export class NoteCreationHandler {
 		if (!selectedTemplate) return;
 		
 		contentEl.empty();
-		contentEl.createEl('h2', { text: 'Create Note' });
+		contentEl.createEl('h2', { text: 'Create note' });
 		
 		// Name input
 		const nameInputContainer = contentEl.createDiv({ cls: 'name-input-container' });
@@ -54,7 +54,7 @@ export class NoteCreationHandler {
 			const uniquePlaceholders = [...new Set(fullTokens)];
 			
 			if (uniquePlaceholders.length > 0) {
-				placeholderSection.createEl('h3', { text: 'Template Fields' });
+				placeholderSection.createEl('h3', { text: 'Template fields' });
 				
 				// Reorder: tags first, then Quote (EN/AR), then Author (EN/AR), then The Permanent Note, then the rest
 				const tagsTokens: string[] = [];
@@ -120,7 +120,8 @@ export class NoteCreationHandler {
 						
 						// Load all tags from metadata cache
 						try {
-							const tagsMap = (this.app.metadataCache as any).getTags?.() as Record<string, number> | undefined;
+							const tagsApi = this.app.metadataCache as unknown as { getTags?: () => Record<string, number> | undefined };
+						const tagsMap = tagsApi.getTags?.();
 							if (tagsMap) {
 								allTags = Object.keys(tagsMap)
 									.map(t => t.replace(/^#/, ''))
@@ -191,7 +192,7 @@ export class NoteCreationHandler {
 									addTag(raw);
 								} else {
 									const first = dropdown.querySelector('li');
-									if (first) addTag((first as HTMLElement).innerText);
+									if (first && first.textContent) addTag(first.textContent);
 								}
 							} else if (e.key === 'Backspace' && input.value === '' && selectedTags.length > 0) {
 								selectedTags.pop();
@@ -306,7 +307,7 @@ export class NoteCreationHandler {
 			cancelButton.addEventListener('click', () => closeModal());
 			
 			const createButton = buttonContainer.createEl('button', { text: 'Create Note' });
-			createButton.addEventListener('click', async () => {
+			createButton.addEventListener('click', () => { void (async () => {
 				let noteName = nameInput.value.trim();
 				if (dateCheckbox.checked) {
 					const today = new Date();
@@ -327,10 +328,10 @@ export class NoteCreationHandler {
 					if (fullToken in customResolvers) {
 						value = customResolvers[fullToken]!();
 					} else if (fullToken in inputFields) {
-						value = (inputFields[fullToken] as HTMLInputElement | HTMLTextAreaElement).value.trim();
+						value = inputFields[fullToken].value.trim();
 					} else if (fullToken in radioGroups) {
 						const radios = radioGroups[fullToken];
-						const checked = radios.find(r => (r as HTMLInputElement).checked);
+						const checked = radios.find(r => r.checked);
 						value = checked ? checked.value : '';
 					}
 					
@@ -360,7 +361,7 @@ export class NoteCreationHandler {
 				
 				await this.createNoteFromTemplate(selectedTemplate, noteName, templateContent, placeholderValues);
 				closeModal();
-			});
+			})(); });
 		} catch (error) {
 			console.error('Error preparing unified note creation modal:', error);
 			new Notice(`Error: ${(error as Error).message}`);

@@ -1,4 +1,4 @@
-import { App, Modal, Setting, Notice } from 'obsidian';
+import { App, Modal, Setting, Notice, TFile } from 'obsidian';
 import { ArchiveSettings } from '../types';
 
 export class ArchiveSettingsModal extends Modal {
@@ -16,7 +16,7 @@ export class ArchiveSettingsModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('archive-settings-modal');
 
-		contentEl.createEl('h2', { text: 'Archive Settings' });
+		contentEl.createEl('h2', { text: 'Archive settings' });
 
 		// Enable/Disable archive
 		new Setting(contentEl)
@@ -62,10 +62,10 @@ export class ArchiveSettingsModal extends Modal {
 		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
 		cancelButton.addEventListener('click', () => this.close());
 
-		const previewButton = buttonContainer.createEl('button', { text: 'Preview Archive' });
-		previewButton.addEventListener('click', () => this.previewArchive());
+		const previewButton = buttonContainer.createEl('button', { text: 'Preview archive' });
+		previewButton.addEventListener('click', () => { void this.previewArchive(); });
 
-		const saveButton = buttonContainer.createEl('button', { text: 'Save Settings' });
+		const saveButton = buttonContainer.createEl('button', { text: 'Save settings' });
 		saveButton.addEventListener('click', () => this.saveSettings());
 	}
 
@@ -79,7 +79,7 @@ export class ArchiveSettingsModal extends Modal {
 		const { ArchiveHandler } = await import('../handlers/archiveHandler');
 		const archiveHandler = new ArchiveHandler(this.app);
 		
-		const filesToArchive = await archiveHandler.getFilesToArchiveByAge(this.settings);
+		const filesToArchive = archiveHandler.getFilesToArchiveByAge(this.settings);
 		
 		if (filesToArchive.length === 0) {
 			new Notice('No files found that match the archive criteria');
@@ -91,12 +91,14 @@ export class ArchiveSettingsModal extends Modal {
 			this.app, 
 			filesToArchive, 
 			this.settings,
-			async (selectedFiles) => {  // Now receives only selected files
-				// Execute archive for selected files only
-				const { ArchiveHandler } = await import('../handlers/archiveHandler');
-				const archiveHandler = new ArchiveHandler(this.app);
-				await archiveHandler.archiveSpecificFiles(selectedFiles);  // New method needed
-				this.close();
+			(selectedFiles) => {  // Now receives only selected files
+				void (async () => {
+					// Execute archive for selected files only
+					const { ArchiveHandler } = await import('../handlers/archiveHandler');
+					const archiveHandler = new ArchiveHandler(this.app);
+					await archiveHandler.archiveSpecificFiles(selectedFiles);  // New method needed
+					this.close();
+				})();
 			}
 		);
 		previewModal.open();
@@ -115,13 +117,13 @@ export class ArchiveSettingsModal extends Modal {
 }
 
 export class ArchivePreviewModal extends Modal {
-	private filesToArchive: { file: any; age: number }[];
+	private filesToArchive: { file: TFile; age: number }[];
 	private settings: ArchiveSettings;
-	private onConfirm: (selectedFiles: { file: any; age: number }[]) => void;
+	private onConfirm: (selectedFiles: { file: TFile; age: number }[]) => void;
 	private selectedFiles: Set<string> = new Set(); // Track selected files
 	private confirmButton: HTMLButtonElement;
 
-	constructor(app: App, filesToArchive: { file: any; age: number }[], settings: ArchiveSettings, onConfirm: (selectedFiles: { file: any; age: number }[]) => void) {
+	constructor(app: App, filesToArchive: { file: TFile; age: number }[], settings: ArchiveSettings, onConfirm: (selectedFiles: { file: TFile; age: number }[]) => void) {
 		super(app);
 		this.filesToArchive = filesToArchive;
 		this.settings = settings;
@@ -152,7 +154,7 @@ export class ArchivePreviewModal extends Modal {
 		});
 		masterCheckbox.checked = true; // Checked by default
 		
-		const masterLabel = masterCheckboxContainer.createEl('label', {
+		masterCheckboxContainer.createEl('label', {
 			text: `Check All (${this.filesToArchive.length} files)`,
 			attr: { for: 'check-all-files' }
 		});
@@ -162,9 +164,11 @@ export class ArchivePreviewModal extends Modal {
 			const isChecked = masterCheckbox.checked;
 			
 			// Update all individual checkboxes
-			const individualCheckboxes = contentEl.querySelectorAll('.file-checkbox') as NodeListOf<HTMLInputElement>;
-			individualCheckboxes.forEach(checkbox => {
-				checkbox.checked = isChecked;
+			const individualCheckboxes = contentEl.querySelectorAll('.file-checkbox');
+			individualCheckboxes.forEach((checkbox) => {
+				if (checkbox instanceof HTMLInputElement) {
+					checkbox.checked = isChecked;
+				}
 			});
 			
 			// Update selected files set

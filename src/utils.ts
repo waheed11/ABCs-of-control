@@ -1,6 +1,5 @@
 import { App, Modal, TFile, TFolder, MarkdownView, MarkdownFileInfo, normalizePath, Notice } from 'obsidian';
-import * as path from 'path';
-import { HeadingMeta, Profile, RoleLetter } from './types';
+import { Profile, RoleLetter, ABCsOfControlPluginAPI, SettingsRoot, PipelineConfig } from './types';
 import { ALPHABET } from './constants';
 
 export async function confirmModal(
@@ -133,7 +132,7 @@ export async function ensureFolderExists(app: App, folderPath: string): Promise<
 /**
  * Get files in a folder
  */
-export async function getFilesInFolder(folder: TFolder): Promise<TFile[]> {
+export function getFilesInFolder(folder: TFolder): TFile[] {
 	const files: TFile[] = [];
 	
 	for (const child of folder.children) {
@@ -150,7 +149,7 @@ export async function getFilesInFolder(folder: TFolder): Promise<TFile[]> {
  * Templates are ONLY discovered from C/Templates
  * Role folders are for destination paths, not template discovery
  */
-export async function getTemplateFiles(app: App, templateFolderPath?: string): Promise<Map<string, TFile[]>> {
+export function getTemplateFiles(app: App, templateFolderPath?: string): Map<string, TFile[]> {
 	const templateMap = new Map<string, TFile[]>();
 	
 	// Initialize map with empty arrays for each letter
@@ -159,7 +158,7 @@ export async function getTemplateFiles(app: App, templateFolderPath?: string): P
 	});
 	
 	// Scan C/Templates for all templates
-	await scanCTemplates(app, templateMap);
+	scanCTemplates(app, templateMap);
 	
 	return templateMap;
 }
@@ -167,7 +166,7 @@ export async function getTemplateFiles(app: App, templateFolderPath?: string): P
 /**
  * Scan C/Templates for traditional A-, B- prefixed templates and pipeline templates
  */
-async function scanCTemplates(app: App, templateMap: Map<string, TFile[]>): Promise<void> {
+function scanCTemplates(app: App, templateMap: Map<string, TFile[]>): void {
 	const folderPath = getTemplatesFolder(app);
 	const templateFolder = app.vault.getAbstractFileByPath(folderPath);
 	
@@ -176,15 +175,15 @@ async function scanCTemplates(app: App, templateMap: Map<string, TFile[]>): Prom
 	}
 	
 	// Read ALL pipeline configurations from Phase 0
-	const p = (app as any).plugins?.plugins?.['abcs-of-control'];
-	const s = p?.settings?.abcsPhase0;
+	const api = getABCsPluginAPI(app);
+	const s: SettingsRoot | undefined = api?.settings?.abcsPhase0;
 	const allPipelines: Array<{ prefix: string; targetLetter: string }> = [];
 	
 	if (s) {
-		const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
+		const prof = s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0];
 		if (prof?.pipelines) {
 			// Collect all pipeline prefixes and their target letters
-			for (const pipe of prof.pipelines) {
+			for (const pipe of prof.pipelines as PipelineConfig[]) {
 				if (pipe.templatePrefix && pipe.targetPath) {
 					// Extract the first letter from the target path (e.g., "D/P/{project}/Test.md" -> "D")
 					const targetLetter = pipe.targetPath.charAt(0).toUpperCase();
@@ -297,13 +296,13 @@ export function buildTargetPath(pattern: string, vars: Record<string, string>): 
 
 // Read pipeline target pattern from Phase 0 and build a concrete path
 export function getPipelineTargetPath(app: App, pipelineId: string, vars: Record<string,string>): string | null {
-	const p = (app as any).plugins?.plugins?.['abcs-of-control'];
-	const s = p?.settings?.abcsPhase0;
-	if (!s) return null;
-	const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
-	const pipe = (prof?.pipelines || []).find((x: any) => x.id === pipelineId);
-	if (!pipe?.targetPath) return null;
-	return buildTargetPath(pipe.targetPath, vars);
+  const api = getABCsPluginAPI(app);
+  const s: SettingsRoot | undefined = api?.settings?.abcsPhase0;
+  if (!s) return null;
+  const prof = s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0];
+  const pipe = (prof?.pipelines || []).find((x: PipelineConfig) => x.id === pipelineId);
+  if (!pipe?.targetPath) return null;
+  return buildTargetPath(pipe.targetPath, vars);
 }
 
 // ===== Role folder helpers =====
@@ -311,11 +310,24 @@ export function getPipelineTargetPath(app: App, pipelineId: string, vars: Record
 /**
  * Get the active Phase 0 profile
  */
+// Type guard for plugin API shape without using 'any'
+function isABCsPluginAPI(obj: unknown): obj is ABCsOfControlPluginAPI {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+  return 'settings' in o && 'saveSettings' in o;
+}
+
+export function getABCsPluginAPI(app: App): ABCsOfControlPluginAPI | null {
+  const pluginsContainer = (app as unknown as { plugins?: { plugins?: Record<string, unknown> } }).plugins;
+  const pluginEntry = pluginsContainer?.plugins?.['abcs-of-control'];
+  return isABCsPluginAPI(pluginEntry) ? pluginEntry : null;
+}
+
 export function getPhase0(app: App): Profile | null {
-	const p = (app as any).plugins?.plugins?.['abcs-of-control'];
-	const s = p?.settings?.abcsPhase0;
-	if (!s) return null;
-	return s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0] || null;
+  const api = getABCsPluginAPI(app);
+  const s: SettingsRoot | undefined = api?.settings?.abcsPhase0;
+  if (!s) return null;
+  return s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0] || null;
 }
 
 /**

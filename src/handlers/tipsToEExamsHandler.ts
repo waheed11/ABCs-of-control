@@ -1,8 +1,7 @@
-import { App, TFile, Notice, normalizePath } from 'obsidian';
+import { App, TFile, Notice } from 'obsidian';
 import * as path from 'path';
-import { HeadingMeta, Selection } from '../types';
-import { ensureFolderExists, confirmModal, parseSection, compareSection, detectArabicContent, parseInsertionTemplateName  } from '../utils';
-import { ArchiveHandler } from './archiveHandler';
+import { Selection, Profile, PipelineConfig } from '../types';
+import { ensureFolderExists, parseSection, compareSection, detectArabicContent, parseInsertionTemplateName, getABCsPluginAPI  } from '../utils';
 
 export class TipsToEExamsHandler {
 	private app: App;
@@ -19,10 +18,10 @@ export class TipsToEExamsHandler {
 		contentEl.empty();
 
 		// Get prefix from pipeline configuration
-		const p0 = (this.app as any).plugins?.plugins?.['abcs-of-control'];
-		const s0 = p0?.settings?.abcsPhase0;
-		const prof0 = s0?.profiles?.find((x:any)=>x.id===s0.activeProfile) || s0?.profiles?.[0];
-		const pipe0 = prof0?.pipelines?.find((x:any)=>x.id===pipelineId);
+		const api0 = getABCsPluginAPI(this.app);
+		const s0 = api0?.settings?.abcsPhase0;
+		const prof0 = s0?.profiles?.find((x: Profile)=>x.id===s0.activeProfile) || s0?.profiles?.[0];
+		const pipe0 = (prof0?.pipelines || []).find((x: PipelineConfig)=>x.id===pipelineId);
 		const prefix = pipe0?.templatePrefix || 'Tips-to-D-Exams-';
 
 		// Parse templates and extract exam info using new name-based parsing
@@ -58,7 +57,7 @@ export class TipsToEExamsHandler {
 		}
 		
 		// Create exam selection UI
-		contentEl.createEl('h2', { text: 'Add Content' });
+		contentEl.createEl('h2', { text: 'Add content' });
 		
 		const examRow = contentEl.createDiv({ cls: 'form-row' });
 		examRow.createEl('label', { text: 'Exam:' });
@@ -87,12 +86,12 @@ export class TipsToEExamsHandler {
 			}
 			
 			// Pass the parsed path info to buildExamUI
-			await this.buildExamUI(templateContent, exam.parsedPath!, contentEl, closeModal, pipelineId);
+			this.buildExamUI(templateContent, exam.parsedPath!, contentEl, closeModal, pipelineId);
 		};
 		
 		// Exam selection change handler
-		examSelect.addEventListener('change', async () => {
-			await loadExam((examSelect as HTMLSelectElement).value);
+		examSelect.addEventListener('change', () => {
+			void loadExam(examSelect.value);
 		});
 		
 		// Load initial exam
@@ -102,7 +101,7 @@ export class TipsToEExamsHandler {
 	/**
 	 * Build the exam-specific UI (headings, selections, etc.)
 	 */
-	private async buildExamUI(templateContent: string, parsedPath: { path: string; filename: string; fullPath: string; projectName: string }, contentEl: HTMLElement, closeModal: () => void, pipelineId: string) {
+	private buildExamUI(templateContent: string, parsedPath: { path: string; filename: string; fullPath: string; projectName: string }, contentEl: HTMLElement, closeModal: () => void, pipelineId: string) {
 		const examContainer = contentEl.createDiv({ cls: 'exam-content' });
 		
 		// Parse headings with level and numeric section (e.g., 1.2.3)
@@ -125,7 +124,7 @@ export class TipsToEExamsHandler {
 			return;
 		}
 		
-		examContainer.createEl('h3', { text: 'Add notes or text for a specific Heading' });
+		examContainer.createEl('h3', { text: 'Add notes or text for a specific heading' });
 		
 		// Heading dropdown (auto RTL/LTR per selection)
 		const headingRow = examContainer.createDiv({ cls: 'form-row' });
@@ -139,7 +138,7 @@ export class TipsToEExamsHandler {
 		});
 		
 		const applyHeadingDir = () => {
-			const value = (headingSelect as HTMLSelectElement).value || '';
+			const value = headingSelect.value || '';
 			const isArabic = detectArabicContent(value);
 			headingSelect.setAttr('dir', isArabic ? 'rtl' : 'ltr');
 		};
@@ -152,11 +151,11 @@ export class TipsToEExamsHandler {
 		
 		// Read "Include Archive" setting from pipeline configuration
 		const getIncludeArchiveFromSettings = (): boolean => {
-			const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
-			const s = p?.settings?.abcsPhase0;
+			const api = getABCsPluginAPI(this.app);
+			const s = api?.settings?.abcsPhase0;
 			if (!s) return false;
-			const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
-			const pipe = prof?.pipelines?.find((x: any) => x.id === pipelineId);
+			const prof = s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0];
+			const pipe = (prof?.pipelines || []).find((x: PipelineConfig) => x.id === pipelineId);
 			return Boolean(pipe?.search?.includeArchive);
 		};
 		
@@ -197,11 +196,6 @@ export class TipsToEExamsHandler {
 		const suggBox = examContainer.createDiv({ cls: 'wiki-suggest-box' });
 		const suggList = suggBox.createEl('ul', { cls: 'wiki-suggest-list' });
 		
-		let allNotes: TFile[] = [];
-		try { 
-			allNotes = this.app.vault.getMarkdownFiles(); 
-		} catch {}
-		
 		let activeIndex = -1;
 		let lastMatches: TFile[] = [];
 		
@@ -228,7 +222,7 @@ export class TipsToEExamsHandler {
 				const item = suggList.createEl('li');
 				const btn = item.createEl('button', { text: `${f.basename} — ${f.path}` });
 				btn.addEventListener('click', () => {
-					addSelection((headingSelect as HTMLSelectElement).value, f.basename);
+					addSelection(headingSelect.value, f.basename);
 					input.value = '';
 					suggList.empty();
 					lastMatches = [];
@@ -282,7 +276,7 @@ export class TipsToEExamsHandler {
 				ev.preventDefault();
 				if (lastMatches.length > 0) {
 					const chosen = lastMatches[Math.max(activeIndex, 0)];
-					addSelection((headingSelect as HTMLSelectElement).value, chosen.basename);
+					addSelection(headingSelect.value, chosen.basename);
 					input.value = '';
 					suggList.empty();
 					lastMatches = [];
@@ -301,12 +295,12 @@ export class TipsToEExamsHandler {
 		});
 		textArea.addClass('abcs-textarea');
 
-		const addTextButton = textAreaRow.createEl('button', { text: 'Add Text' });
+		const addTextButton = textAreaRow.createEl('button', { text: 'Add text' });
 		addTextButton.addClass('abcs-mt-5');
 		addTextButton.addEventListener('click', () => {
 			const text = textArea.value.trim();
 			if (text) {
-				addSelection((headingSelect as HTMLSelectElement).value, undefined, text);
+				addSelection(headingSelect.value, undefined, text);
 				textArea.value = '';
 			}
 		});
@@ -319,11 +313,11 @@ export class TipsToEExamsHandler {
 			closeButton.addEventListener('click', () => closeModal());
 
 			// 3) Insert (primary, right)
-			const insertButton = buttonContainer.createEl('button', { text: 'Insert into Tips', cls: 'mod-cta' });
-		insertButton.addEventListener('click', async () => {
+			const insertButton = buttonContainer.createEl('button', { text: 'Insert into tips', cls: 'mod-cta' });
+		insertButton.addEventListener('click', () => { void (async () => {
 			// Prevent losing typed custom text if user forgot to click "Add Text"
 			if (textArea && textArea.value && textArea.value.trim().length > 0) {
-				new Notice('You have custom text typed. Click "Add Text" to include it before inserting, or clear the field.');
+				new Notice('You have custom text typed. Click "Add text" to include it before inserting, or clear the field.');
 				return;
 			}
 			if (selections.length === 0) { 
@@ -446,7 +440,7 @@ export class TipsToEExamsHandler {
 
 			// Show success feedback and keep modal open for more additions
 			new Notice(`✅ Tips added to ${parsedPath.projectName}! You can now switch exams or add more tips.`);
-		});
+        })(); });
 	}
 	private filterNotes(notes: TFile[], includeArchive: boolean = false): TFile[] {
 		return notes.filter(note => {

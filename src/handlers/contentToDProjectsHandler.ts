@@ -1,8 +1,7 @@
-import { ArchiveHandler } from './archiveHandler';
-import { App, TFile, Notice, normalizePath } from 'obsidian';
+import { App, TFile, Notice } from 'obsidian';
 import * as path from 'path';
-import { HeadingMeta, Selection } from '../types';
-import { ensureFolderExists, parseSection, compareSection, detectArabicContent, confirmModal, parseInsertionTemplateName  } from '../utils';
+import { Selection, Profile, PipelineConfig } from '../types';
+import { ensureFolderExists, parseSection, compareSection, detectArabicContent, parseInsertionTemplateName, getABCsPluginAPI  } from '../utils';
 
 export class ContentToDProjectsHandler {
 	private app: App;
@@ -19,10 +18,10 @@ export class ContentToDProjectsHandler {
 		contentEl.empty();
 
 		// Get prefix from pipeline configuration
-		const p0 = (this.app as any).plugins?.plugins?.['abcs-of-control'];
-		const s0 = p0?.settings?.abcsPhase0;
-		const prof0 = s0?.profiles?.find((x:any)=>x.id===s0.activeProfile) || s0?.profiles?.[0];
-		const pipe0 = prof0?.pipelines?.find((x:any)=>x.id===pipelineId);
+		const api0 = getABCsPluginAPI(this.app);
+		const s0 = api0?.settings?.abcsPhase0;
+		const prof0 = s0?.profiles?.find((x: Profile)=>x.id===s0.activeProfile) || s0?.profiles?.[0];
+		const pipe0 = (prof0?.pipelines || []).find((x: PipelineConfig)=>x.id===pipelineId);
 		const prefix = pipe0?.templatePrefix || 'Content-to-D-Projects-';
 
 		// Parse templates and extract project info using new name-based parsing
@@ -58,7 +57,7 @@ export class ContentToDProjectsHandler {
 		}
 		
 		// Create project selection UI
-		contentEl.createEl('h2', { text: 'Add Content' });
+		contentEl.createEl('h2', { text: 'Add content' });
 		
 		const projectRow = contentEl.createDiv({ cls: 'form-row' });
 		projectRow.createEl('label', { text: 'Project:' });
@@ -87,22 +86,22 @@ export class ContentToDProjectsHandler {
 			}
 			
 			// Pass the parsed path info to buildProjectUI
-			await this.buildProjectUI(templateContent, project.parsedPath!, contentEl, closeModal, pipelineId);
+			this.buildProjectUI(templateContent, project.parsedPath!, contentEl, closeModal, pipelineId);
 		};
 		
 		// Project selection change handler
-		projectSelect.addEventListener('change', async () => {
-			await loadProject((projectSelect as HTMLSelectElement).value);
+		projectSelect.addEventListener('change', () => {
+			void loadProject(projectSelect.value);
 		});
 		
 		// Load initial project
-		await loadProject(currentProject.name);
+		loadProject(currentProject.name);
 	}
     
     /**
      * Build the project-specific UI (headings, selections, etc.)
      */
-	private async buildProjectUI(
+	private buildProjectUI(
 		templateContent: string,
 		parsedPath: { path: string; filename: string; fullPath: string; projectName: string },
 		contentEl: HTMLElement,
@@ -131,7 +130,7 @@ export class ContentToDProjectsHandler {
 			return;
 		}
 		
-		projectContainer.createEl('h3', { text: 'Add notes or text for a specific Heading' });
+		projectContainer.createEl('h3', { text: 'Add notes or text for a specific heading' });
 		
 			
 			// Heading dropdown (auto RTL/LTR per selection)
@@ -146,7 +145,7 @@ export class ContentToDProjectsHandler {
 		});
 		
 		const applyHeadingDir = () => {
-			const value = (headingSelect as HTMLSelectElement).value || '';
+			const value = headingSelect.value || '';
 			const isArabic = detectArabicContent(value);
 			headingSelect.setAttr('dir', isArabic ? 'rtl' : 'ltr');
 		};
@@ -156,13 +155,14 @@ export class ContentToDProjectsHandler {
 		// Selections list
 		const selectedList = projectContainer.createDiv({ cls: 'selected-notes' });
 		selectedList.createEl('h3', { text: 'Notes to add' });
+		
 		// Read "Include Archive" setting from pipeline configuration
 		const getIncludeArchiveFromSettings = (): boolean => {
-			const p = (this.app as any).plugins?.plugins?.['abcs-of-control'];
-			const s = p?.settings?.abcsPhase0;
+			const api = getABCsPluginAPI(this.app);
+			const s = api?.settings?.abcsPhase0;
 			if (!s) return false; // fallback default
-			const prof = s.profiles.find((x: any) => x.id === s.activeProfile) || s.profiles[0];
-			const pipe = prof?.pipelines?.find((x: any) => x.id === pipelineId);
+			const prof = s.profiles.find((x: Profile) => x.id === s.activeProfile) || s.profiles[0];
+			const pipe = (prof?.pipelines || []).find((x: PipelineConfig) => x.id === pipelineId);
 			return Boolean(pipe?.search?.includeArchive);
 		};
 		
@@ -202,11 +202,6 @@ export class ContentToDProjectsHandler {
 		const suggBox = projectContainer.createDiv({ cls: 'wiki-suggest-box' });
 		const suggList = suggBox.createEl('ul', { cls: 'wiki-suggest-list' });
 
-		let allNotes: TFile[] = [];
-		try { 
-			allNotes = this.app.vault.getMarkdownFiles(); 
-		} catch {}
-		
 		let activeIndex = -1;
 		let lastMatches: TFile[] = [];
 		
@@ -233,7 +228,7 @@ export class ContentToDProjectsHandler {
 				const item = suggList.createEl('li');
 				const btn = item.createEl('button', { text: `${f.basename} — ${f.path}` });
 				btn.addEventListener('click', () => {
-					addSelection((headingSelect as HTMLSelectElement).value, f.basename);
+					addSelection(headingSelect.value, f.basename);
 					input.value = '';
 					suggList.empty();
 					lastMatches = [];
@@ -287,7 +282,7 @@ export class ContentToDProjectsHandler {
 				ev.preventDefault();
 				if (lastMatches.length > 0) {
 					const chosen = lastMatches[Math.max(activeIndex, 0)];
-					addSelection((headingSelect as HTMLSelectElement).value, chosen.basename);
+					addSelection(headingSelect.value, chosen.basename);
 					input.value = '';
 					suggList.empty();
 					lastMatches = [];
@@ -300,20 +295,21 @@ export class ContentToDProjectsHandler {
 		textAreaRow.addClass('abcs-stack');
 		textAreaRow.createEl('label', { text: 'Or add custom text:' });
 		const textArea = textAreaRow.createEl('textarea', { 
-			placeholder: 'Enter custom text to add under the selected heading...',
+			placeholder: 'Enter custom content to add under the selected heading...',
 			attr: { rows: '4' }
 		});
 		textArea.addClass('abcs-textarea');
 
-		const addTextButton = textAreaRow.createEl('button', { text: 'Add Text' });
+		const addTextButton = textAreaRow.createEl('button', { text: 'Add text' });
 		addTextButton.addClass('abcs-mt-5');
 		addTextButton.addEventListener('click', () => {
 			const text = textArea.value.trim();
 			if (text) {
-				addSelection((headingSelect as HTMLSelectElement).value, undefined, text);
+				addSelection(headingSelect.value, undefined, text);
 				textArea.value = '';
 			}
 		});
+
 		// Buttons
 		const buttonContainer = projectContainer.createDiv({ cls: 'button-container' });
 
@@ -321,14 +317,17 @@ export class ContentToDProjectsHandler {
 		const cancelButton = buttonContainer.createEl('button', { text: 'Close' });
 		cancelButton.addEventListener('click', () => closeModal());
 
-		// 3) Insert (primary/violet, right)
-		const insertButton = buttonContainer.createEl('button', { text: 'Insert into Content', cls: 'mod-cta' });
-		insertButton.addEventListener('click', async () => {
+		// Insert button
+		const insertButton = buttonContainer.createEl('button', { text: 'Insert into content', cls: 'mod-cta' });
+		insertButton.addEventListener('click', () => { void (async () => {
 			if (textArea && textArea.value && textArea.value.trim().length > 0) {
-				new Notice('You have custom text typed. Click "Add Text" to include it before inserting, or clear the field.');
+				new Notice('You have custom text typed. Click "Add text" to include it before inserting, or clear the field.');
 				return;
 			}
-			if (selections.length === 0) { new Notice('Add at least one note or text first.'); return; }
+			if (selections.length === 0) {
+				new Notice('Add at least one note or text first.');
+				return;
+			}
 			const targetPath = parsedPath.fullPath;
 			await ensureFolderExists(this.app, path.dirname(targetPath));
 			const existing = this.app.vault.getAbstractFileByPath(targetPath);
@@ -377,11 +376,11 @@ export class ContentToDProjectsHandler {
 			new Notice(`Inserted ${selections.length} item(s) into ${targetPath}`);
 			selections.length = 0; listEl.empty(); input.value = ''; textArea.value = '';
 			new Notice(`✅ Content added to ${parsedPath.projectName}! You can now switch projects or add more content.`);
-		});
-		}		
+		})(); });
+		}
+
 		private filterNotes(notes: TFile[], includeArchive: boolean = false): TFile[] {
-			return notes.filter(note => {
-				// Skip archive folders unless explicitly included
+			return notes.filter((note: TFile) => {
 				if (!includeArchive) {
 					if (note.path.startsWith('E/')) {
 						return false;
@@ -389,6 +388,6 @@ export class ContentToDProjectsHandler {
 				}
 				return true;
 			});
-		}	
+		}
 	}
 

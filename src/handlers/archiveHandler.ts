@@ -57,7 +57,7 @@ export class ArchiveHandler {
 					const existingFile = this.app.vault.getAbstractFileByPath(newPath);
 					if (existingFile) {
 						// Generate unique name
-						const uniquePath = await this.generateUniquePath(newPath);
+						const uniquePath = this.generateUniquePath(newPath);
 						await this.app.fileManager.renameFile(file, uniquePath);
 					} else {
 						await this.app.fileManager.renameFile(file, newPath);
@@ -121,7 +121,7 @@ export class ArchiveHandler {
 	/**
 	 * Generate unique path if file already exists
 	 */
-	private async generateUniquePath(basePath: string): Promise<string> {
+	private generateUniquePath(basePath: string): string {
 		const pathWithoutExt = basePath.replace(/\.md$/, '');
 		let counter = 1;
 		let uniquePath = basePath;
@@ -136,7 +136,7 @@ export class ArchiveHandler {
 	/**
  * Get files that should be archived based on age settings
  */
-async getFilesToArchiveByAge(settings: ArchiveSettings): Promise<{ file: TFile; age: number }[]> {
+getFilesToArchiveByAge(settings: ArchiveSettings): { file: TFile; age: number }[] {
 	if (!settings.enabled) {
 		return [];
 	}
@@ -172,7 +172,7 @@ async getFilesToArchiveByAge(settings: ArchiveSettings): Promise<{ file: TFile; 
  * Archive files based on age settings
  */
 async archiveFilesByAge(settings: ArchiveSettings): Promise<void> {
-	const filesToArchive = await this.getFilesToArchiveByAge(settings);
+	const filesToArchive = this.getFilesToArchiveByAge(settings);
 	
 	if (filesToArchive.length === 0) {
 		new Notice('No files found that match the archive criteria');
@@ -194,7 +194,7 @@ async archiveFilesByAge(settings: ArchiveSettings): Promise<void> {
 			const existingFile = this.app.vault.getAbstractFileByPath(newPath);
 			if (existingFile) {
 				// Generate unique name
-				const uniquePath = await this.generateUniquePath(newPath);
+				const uniquePath = this.generateUniquePath(newPath);
 				await this.app.fileManager.renameFile(file, uniquePath);
 			} else {
 				await this.app.fileManager.renameFile(file, newPath);
@@ -216,7 +216,7 @@ async archiveFilesByAge(settings: ArchiveSettings): Promise<void> {
 		console.error('Archive errors:', errors);
 	}
 }
-async archiveSpecificFiles(filesToArchive: { file: any; age: number }[]): Promise<void> {
+async archiveSpecificFiles(filesToArchive: { file: TFile; age: number }[]): Promise<void> {
 	let movedCount = 0;
 	const errors: string[] = [];
 
@@ -281,7 +281,7 @@ async moveFolder(fromPath: string, toPath: string): Promise<string> {
 	// Resolve name conflicts
 	let finalDest = normalizePath(toPath);
 	if (this.app.vault.getAbstractFileByPath(finalDest)) {
-	  finalDest = await this.generateUniqueFolderPath(finalDest);
+	  finalDest = this.generateUniqueFolderPath(finalDest);
 	}
   
 	await this.app.fileManager.renameFile(src as TAbstractFile, finalDest);
@@ -289,21 +289,21 @@ async moveFolder(fromPath: string, toPath: string): Promise<string> {
   }
   
   /** Move a D/{Projects|Exams}/[name] folder to E/{Projects|Exams}/[name] */
-  async moveProjectOrExam(kind: 'project' | 'exam', name: string): Promise<string> {
+  moveProjectOrExam(kind: 'project' | 'exam', name: string): Promise<string> {
 	const kindFolder = kind === 'project' ? 'Projects' : 'Exams';
 	const fromPath = `D/${kindFolder}/${name}`;
 	const toPath = `E/${kindFolder}/${name}`;
-	return await this.moveFolder(fromPath, toPath);
+	return this.moveFolder(fromPath, toPath);
   }
   
-  /** Generate a unique destination folder path if one already exists */
-  private async generateUniqueFolderPath(basePath: string): Promise<string> {
-	let counter = 1;
-	let candidate = basePath;
-	while (this.app.vault.getAbstractFileByPath(candidate)) {
-	  candidate = `${basePath} (${counter})`;
-	  counter++;
-	}
-	return normalizePath(candidate);
+/** Generate a unique destination folder path if one already exists */
+private generateUniqueFolderPath(basePath: string): string {
+  let counter = 1;
+  let candidate = basePath;
+  while (this.app.vault.getAbstractFileByPath(candidate)) {
+    candidate = `${basePath} (${counter})`;
+    counter++;
   }
+  return normalizePath(candidate);
+}
 }
