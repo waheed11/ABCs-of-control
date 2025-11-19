@@ -30,7 +30,7 @@ aliases:
 
 ## Intentions:
 Answer the following question:
-Why am I as {{{VALUE:What role(s) do you represent}} do the {{{VALUE:Task}}?
+Why am I as {{VALUE:What role(s) do you represent}} do the {{VALUE:Task}}?
 
 ## The main knowledge block:
 
