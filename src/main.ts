@@ -16,6 +16,7 @@ export default class ABCsOfControlPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		this.ensurePhase0Defaults();
 		await this.ensureRequiredFolders();
 		await this.saveSettings();
 		

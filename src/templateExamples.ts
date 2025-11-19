@@ -12,6 +12,41 @@ export async function createTemplateExamples(app: App): Promise<void> {
 	// Define all template examples
 	const templates = [
 		{
+			name: 'C-Intentions.md',
+			content: `---
+type: intention
+status: 
+date: 
+tags:
+  - {{VALUE:tags}}
+lang: 
+aliases:
+---
+## Task:
+{{VALUE:Task}}
+
+## Role(s):
+{{VALUE: What role(s) do you represent}}
+
+## Intentions:
+Answer the following question:
+Why am I as {{{VALUE:What role(s) do you represent}} do the {{{VALUE:Task}}?
+
+## The main knowledge block:
+
+
+## Tools and resources:
+
+
+## Projects:
+
+### Educational projects:
+
+
+### Practical projects:
+
+`
+		},{
 			name: 'A-Inbox-Ideas.md',
 			content: `---
 type: idea
