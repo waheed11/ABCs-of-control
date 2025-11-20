@@ -26,11 +26,11 @@ aliases:
 {{VALUE:Task}}
 
 ## Role(s):
-{{VALUE: What role(s) do you represent}}
+{{VALUE:What role/roles do you represent}}
 
 ## Intentions:
 Answer the following question:
-Why am I as {{VALUE:What role(s) do you represent}} do the {{VALUE:Task}}?
+Why am I as a {{VALUE:What role/roles do you represent}} do the {{VALUE:Task}}?
 
 ## The main knowledge block:
 
