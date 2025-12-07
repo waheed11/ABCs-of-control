@@ -4,6 +4,19 @@ export interface ArchiveSettings {
 	excludeFolders: string[];
 }
 
+export interface CSheetDefaults {
+	intentionsPath: string;
+	informationBlocksPath: string;
+	conceptsPath: string;
+	pdfsPath: string;
+	videosPath: string;
+	audiosPath: string;
+	infographsPath: string;
+	imagesPath: string;
+	slidesPath: string;
+	projectsPath: string;
+}
+
 export interface ABCsOfControlSettings {
 	templateFolderPath: string;
 	whenToUse: string;
@@ -11,6 +24,7 @@ export interface ABCsOfControlSettings {
 	defaultHighlightColor: string;
 	language: string;
 	abcsPhase0?: SettingsRoot; // Phase 0: optional to keep backward compatibility
+	cSheetDefaults?: CSheetDefaults;
 }
 
 export interface HighlightData {

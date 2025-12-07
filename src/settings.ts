@@ -42,6 +42,134 @@ export class ABCsSettingTab extends PluginSettingTab {
 					void this.plugin.saveSettings();
 				}));
 
+		// ---- C-Sheets Defaults ----
+		new Setting(containerEl)
+			.setName('C-Sheets defaults')
+			.setHeading();
+
+		const cs = this.plugin.settings.cSheetDefaults ?? (this.plugin.settings.cSheetDefaults = {
+			intentionsPath: '',
+			informationBlocksPath: '',
+			conceptsPath: '',
+			pdfsPath: '',
+			videosPath: '',
+			audiosPath: '',
+			infographsPath: '',
+			imagesPath: '',
+			slidesPath: '',
+			projectsPath: '',
+		});
+
+		new Setting(containerEl)
+			.setName('Intentions path')
+			.setDesc('Default for {{VALUE:Intentions path}} in C-Sheets')
+			.addText(text => text
+				.setPlaceholder('C/home/Intentions')
+				.setValue(cs.intentionsPath || '')
+				.onChange((value) => {
+					cs.intentionsPath = value.trim();
+					void this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Information blocks path')
+			.setDesc('Default for {{VALUE:Information blocks path}} in C-Sheets')
+			.addText(text => text
+				.setPlaceholder('B/AI Conversation')
+				.setValue(cs.informationBlocksPath || '')
+				.onChange((value) => {
+					cs.informationBlocksPath = value.trim();
+					void this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Concepts path')
+			.setDesc('Default for {{VALUE:Concepts path}} in C-Sheets')
+			.addText(text => text
+				.setPlaceholder('A/Permanent Notes')
+				.setValue(cs.conceptsPath || '')
+				.onChange((value) => {
+					cs.conceptsPath = value.trim();
+					void this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('PDFs path')
+			.setDesc('Default for {{VALUE:PDFs path}} in C-Sheets')
+			.addText(text => text
+				.setPlaceholder('C/Sheets/PDFs')
+				.setValue(cs.pdfsPath || '')
+				.onChange((value) => {
+					cs.pdfsPath = value.trim();
+					void this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Videos path')
+			.setDesc('Default for {{VALUE:Videos path}} in C-Sheets')
+			.addText(text => text
+				.setPlaceholder('C/Sheets/Videos')
+				.setValue(cs.videosPath || '')
+				.onChange((value) => {
+					cs.videosPath = value.trim();
+					void this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Audios path')
+			.setDesc('Default for {{VALUE:Audios path}} in C-Sheets')
+			.addText(text => text
+				.setPlaceholder('C/Sheets/Audios')
+				.setValue(cs.audiosPath || '')
+				.onChange((value) => {
+					cs.audiosPath = value.trim();
+					void this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Infographs path')
+			.setDesc('Default for {{VALUE:Infographs path}} in C-Sheets')
+			.addText(text => text
+				.setPlaceholder('C/Sheets/Infographs')
+				.setValue(cs.infographsPath || '')
+				.onChange((value) => {
+					cs.infographsPath = value.trim();
+					void this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Images path')
+			.setDesc('Default for {{VALUE:Images path}} in C-Sheets')
+			.addText(text => text
+				.setPlaceholder('C/Sheets/Images')
+				.setValue(cs.imagesPath || '')
+				.onChange((value) => {
+					cs.imagesPath = value.trim();
+					void this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Slides path')
+			.setDesc('Default for {{VALUE:Slides path}} in C-Sheets')
+			.addText(text => text
+				.setPlaceholder('C/Sheets/Slides')
+				.setValue(cs.slidesPath || '')
+				.onChange((value) => {
+					cs.slidesPath = value.trim();
+					void this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Projects path')
+			.setDesc('Default for {{VALUE:Projects path}} in C-Sheets')
+			.addText(text => text
+				.setPlaceholder('D/Projects')
+				.setValue(cs.projectsPath || '')
+				.onChange((value) => {
+					cs.projectsPath = value.trim();
+					void this.plugin.saveSettings();
+				}));
+
 		new Setting(containerEl)
 			.setName('Default language')
 			.setDesc('Default language for section headers')

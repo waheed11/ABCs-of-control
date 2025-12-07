@@ -178,6 +178,21 @@ If your plugin does not need CSS, delete this file.
     font-weight: bold;
 }
 
+.placeholder-input-container .csheet-default-toggle {
+    margin-top: 6px;
+}
+
+.placeholder-input-container .csheet-default-toggle input[type="checkbox"] {
+    width: auto;
+    margin-right: 6px;
+}
+
+.placeholder-input-container .csheet-default-toggle label {
+    display: inline;
+    margin: 0;
+    font-weight: normal;
+}
+
 .placeholder-input-container .radio-group {
     display: flex;
     flex-wrap: wrap;
