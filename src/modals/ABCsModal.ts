@@ -57,6 +57,17 @@ export class ABCsModal extends Modal {
         // Add container for template list
         contentEl.createDiv({ cls: 'template-list-container' });
 
+        // Control sheet extraction action
+        const extractContainer = contentEl.createDiv({ cls: 'csheet-extract-container' });
+        const extractLink = extractContainer.createEl('button', { text: 'Extract from control sheet' });
+        extractLink.addEventListener('click', () => {
+            void (async () => {
+                const { ControlSheetExtractModal } = await import('./ControlSheetExtractModal');
+                const modal = new ControlSheetExtractModal(this.app);
+                modal.open();
+            })();
+        });
+
         // Support footer (unobtrusive)
         const footer = contentEl.createDiv({ cls: 'abcs-support-footer' });
         footer.createEl('span', { text: 'Support: ' });

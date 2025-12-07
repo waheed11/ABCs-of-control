@@ -9,6 +9,18 @@ export const DEFAULT_SETTINGS: ABCsOfControlSettings = {
 		enabled: false,
 		archiveAfterDays: 30,
 		excludeFolders: ['Templates']
+	},
+	cSheetDefaults: {
+		intentionsPath: '',
+		informationBlocksPath: '',
+		conceptsPath: '',
+		pdfsPath: '',
+		videosPath: '',
+		audiosPath: '',
+		infographsPath: '',
+		imagesPath: '',
+		slidesPath: '',
+		projectsPath: '',
 	}
 };
 

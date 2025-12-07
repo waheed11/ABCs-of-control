@@ -17,7 +17,14 @@ export async function confirmModal(
     let decided = false; // guard to avoid double resolution
 
     contentEl.createEl('h2', { text: title });
-    contentEl.createEl('p', { text: message });
+    const messagePara = contentEl.createEl('p');
+    const messageLines = message.split('\n');
+    messageLines.forEach((line, index) => {
+      if (index > 0) {
+        messagePara.createEl('br');
+      }
+      messagePara.appendText(line);
+    });
 
     const btns = contentEl.createDiv({ cls: 'button-container' });
     const cancel = btns.createEl('button', { text: cancelText });

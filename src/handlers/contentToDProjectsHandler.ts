@@ -57,7 +57,12 @@ export class ContentToDProjectsHandler {
 		}
 		
 		// Create project selection UI
+		const dragBar = contentEl.createDiv({ cls: 'abcs-drag-handle' });
+		dragBar.style.height = '24px';
+		dragBar.style.marginTop = '-8px';
+		dragBar.style.cursor = 'move';
 		contentEl.createEl('h2', { text: 'Add content' });
+		this.makeModalDraggableFromContent(contentEl);
 		
 		const projectRow = contentEl.createDiv({ cls: 'form-row' });
 		projectRow.createEl('label', { text: 'Project:' });
@@ -96,6 +101,50 @@ export class ContentToDProjectsHandler {
 		
 		// Load initial project
 		await loadProject(currentProject.name);
+	}
+	
+	private makeModalDraggableFromContent(contentEl: HTMLElement): void {
+		const modalEl = contentEl.closest('.modal') as (HTMLElement & { _abcsDragBound?: boolean }) | null;
+		if (!modalEl) return;
+		const handleEl = (contentEl.querySelector('.abcs-drag-handle') || contentEl.querySelector('h2')) as (HTMLElement & { _abcsDragBound?: boolean }) | null;
+		if (!handleEl) return;
+		const handle = handleEl;
+		if (handle._abcsDragBound) return;
+		handle._abcsDragBound = true;
+		handle.style.cursor = 'move';
+		let isDragging = false;
+		let offsetX = 0;
+		let offsetY = 0;
+		const onMouseDown = (ev: MouseEvent) => {
+			if (ev.button !== 0) return;
+			isDragging = true;
+			const rect = modalEl.getBoundingClientRect();
+			offsetX = ev.clientX - rect.left;
+			offsetY = ev.clientY - rect.top;
+			// Switch to fixed positioning anchored at the current screen position
+			modalEl.style.position = 'fixed';
+			modalEl.style.margin = '0';
+			modalEl.style.top = `${rect.top}px`;
+			modalEl.style.left = `${rect.left}px`;
+			modalEl.style.transform = 'none';
+			const onMouseMove = (moveEv: MouseEvent) => {
+				if (!isDragging) return;
+				const x = moveEv.clientX - offsetX;
+				const y = moveEv.clientY - offsetY;
+				modalEl.style.left = `${x}px`;
+				modalEl.style.top = `${y}px`;
+			};
+			const onMouseUp = () => {
+				if (!isDragging) return;
+				isDragging = false;
+				window.removeEventListener('mousemove', onMouseMove);
+				window.removeEventListener('mouseup', onMouseUp);
+			};
+			window.addEventListener('mousemove', onMouseMove);
+			window.addEventListener('mouseup', onMouseUp);
+			ev.preventDefault();
+		};
+		handle.addEventListener('mousedown', onMouseDown);
 	}
     
     /**
