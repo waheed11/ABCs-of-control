@@ -101,10 +101,27 @@ export class ControlSheetExtractionHandler {
 		for (const a of plan.aNotes) {
 			await createFile(a);
 		}
-		for (const t of plan.dTemplates) {
+		for (let idx = 0; idx < plan.dTemplates.length; idx++) {
+			const t = plan.dTemplates[idx];
+			const d = plan.dNotes[idx];
+			const existingD = this.app.vault.getAbstractFileByPath(d.fullPath);
+			if (existingD && existingD instanceof TFile) {
+				// D project already exists: do not create a template in C/Templates for it
+				continue;
+			}
 			await createFile(t);
 		}
-		for (const d of plan.dNotes) {
+		for (let idx = 0; idx < plan.dNotes.length; idx++) {
+			const d = plan.dNotes[idx];
+			const targetPath = d.fullPath;
+			const existing = this.app.vault.getAbstractFileByPath(targetPath);
+			if (existing && existing instanceof TFile) {
+				const updated = await this.updateExistingDProjectNote(existing, idx);
+				if (updated) {
+					created.push(targetPath);
+				}
+				continue;
+			}
 			await createFile(d);
 		}
 		const totalNotes = 2 + plan.aNotes.length + plan.dTemplates.length + plan.dNotes.length; // C note, B note, all A notes, all D templates, all D notes
@@ -179,6 +196,37 @@ export class ControlSheetExtractionHandler {
 			if (tag) result.push(tag);
 		}
 		return result;
+	}
+
+	private async updateExistingDProjectNote(file: TFile, projectIndex: number): Promise<boolean> {
+		const projectToc = this.dTocEntries.filter(e => e.projectIndex === projectIndex);
+		if (projectToc.length === 0) {
+			return false;
+		}
+		const raw = await this.app.vault.read(file);
+		const normalized = raw.replace(/\r\n/g, '\n');
+		const splitFrontmatter = (src: string): { frontmatter: string; body: string } => {
+			if (!src.startsWith('---')) return { frontmatter: '', body: src };
+			const end = src.indexOf('\n---');
+			if (end === -1) return { frontmatter: '', body: src };
+			const after = src.indexOf('\n', end + 4);
+			if (after === -1) {
+				return { frontmatter: src.slice(0, end + 4) + '\n', body: src.slice(end + 4) };
+			}
+			return { frontmatter: src.slice(0, after + 1), body: src.slice(after + 1) };
+		};
+		const { frontmatter, body } = splitFrontmatter(normalized);
+		const newEntries = projectToc.filter(entry => !this.bodyHasTocLine(body, entry.section, entry.conceptName));
+		if (newEntries.length === 0) {
+			return false;
+		}
+		newEntries.sort((a, b) => compareSection(parseSection(a.section), parseSection(b.section)));
+		const bodyLines = body.replace(/^\n/, '').split('\n');
+		const updatedBodyLines = this.insertTocIntoBodyLines(bodyLines, newEntries);
+		const updatedBody = updatedBodyLines.join('\n').trim();
+		const newContent = frontmatter ? frontmatter + updatedBody : updatedBody;
+		await this.app.vault.modify(file, newContent);
+		return true;
 	}
 
 	private applyTagsToNotePlan(plan: ExtractionNotePlan, tags: string[]): ExtractionNotePlan {
@@ -481,19 +529,31 @@ export class ControlSheetExtractionHandler {
 		return false;
 	}
 
+	private bodyHasTocLine(body: string, section: string, conceptName: string): boolean {
+		const target = `${section} [[${conceptName}]]`;
+		const lines = body.replace(/\r\n/g, '\n').split('\n');
+		for (const raw of lines) {
+			if (raw.trim() === target) return true;
+		}
+		return false;
+	}
+
 	private insertTocIntoBodyLines(
 		bodyLines: string[],
 		projectToc: { projectIndex: number; section: string; conceptName: string }[],
 	): string[] {
-		// 1) Collect all headings with numeric prefixes
-		const headingInfos: { lineIndex: number; parts: number[]; prefix: string }[] = [];
+		// 1) Collect all headings with numeric prefixes and their depths
+		const headingInfos: { lineIndex: number; parts: number[]; depth: number }[] = [];
 		for (let i = 0; i < bodyLines.length; i++) {
 			const trimmed = bodyLines[i].trim();
 			if (!trimmed.startsWith('#')) continue;
-			const headingText = trimmed.replace(/^#+\s*/, '');
+			const m = /^#+/.exec(trimmed);
+			if (!m) continue;
+			const depth = m[0].length;
+			const headingText = trimmed.slice(depth).trim();
 			const parts = parseSection(headingText);
 			if (parts.length === 0) continue;
-			headingInfos.push({ lineIndex: i, parts, prefix: parts.join('.') });
+			headingInfos.push({ lineIndex: i, parts, depth });
 		}
 		// 2) Assign each TOC entry to the most specific matching heading (longest numeric prefix)
 		const entriesByHeading = new Map<number, { section: string; conceptName: string }[]>();
@@ -504,7 +564,7 @@ export class ControlSheetExtractionHandler {
 				leftover.push({ section: entry.section, conceptName: entry.conceptName });
 				continue;
 			}
-			let best: { lineIndex: number; parts: number[] } | null = null;
+			let best: { lineIndex: number; parts: number[]; depth: number } | null = null;
 			for (const h of headingInfos) {
 				if (h.parts.length > entryParts.length) continue;
 				let matches = true;
@@ -516,7 +576,7 @@ export class ControlSheetExtractionHandler {
 				}
 				if (!matches) continue;
 				if (!best || h.parts.length > best.parts.length || (h.parts.length === best.parts.length && h.lineIndex > best.lineIndex)) {
-					best = { lineIndex: h.lineIndex, parts: h.parts };
+					best = { lineIndex: h.lineIndex, parts: h.parts, depth: h.depth };
 				}
 			}
 			if (best) {
@@ -527,21 +587,41 @@ export class ControlSheetExtractionHandler {
 				leftover.push({ section: entry.section, conceptName: entry.conceptName });
 			}
 		}
-		// 3) Rebuild body lines, inserting assigned entries after each heading
+		// 3) Compute insertion index (bottom of block) for each heading
+		const insertMap = new Map<number, { section: string; conceptName: string }[]>();
+		for (const h of headingInfos) {
+			const assigned = entriesByHeading.get(h.lineIndex);
+			if (!assigned || assigned.length === 0) continue;
+			let j = h.lineIndex + 1;
+			while (j < bodyLines.length) {
+				const t = bodyLines[j].trim();
+				if (t.startsWith('#')) {
+					const m2 = /^#+/.exec(t);
+					const depth2 = m2 ? m2[0].length : 0;
+					if (depth2 <= h.depth) break; // next heading at same or higher level ends this block
+				}
+				j++;
+			}
+			const insertAfter = Math.max(h.lineIndex, j - 1);
+			const existing = insertMap.get(insertAfter) ?? [];
+			existing.push(...assigned);
+			insertMap.set(insertAfter, existing);
+		}
+		// 4) Rebuild body lines, inserting assigned entries at the bottom of each heading block
 		const result: string[] = [];
 		for (let i = 0; i < bodyLines.length; i++) {
 			result.push(bodyLines[i]);
-			const assigned = entriesByHeading.get(i);
-			if (assigned && assigned.length > 0) {
+			const assignedAtThisLine = insertMap.get(i);
+			if (assignedAtThisLine && assignedAtThisLine.length > 0) {
 				if (result.length > 0 && result[result.length - 1].trim() !== '') {
 					result.push('');
 				}
-				for (const entry of assigned) {
+				for (const entry of assignedAtThisLine) {
 					result.push(`${entry.section} [[${entry.conceptName}]]`);
 				}
 			}
 		}
-		// 4) Any remaining entries go at the end
+		// 5) Any remaining entries go at the very end of the note
 		if (leftover.length > 0) {
 			if (result.length > 0 && result[result.length - 1].trim() !== '') {
 				result.push('');
