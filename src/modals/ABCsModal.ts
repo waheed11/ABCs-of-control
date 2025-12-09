@@ -5,6 +5,8 @@ import { ContentToDProjectsHandler } from '../handlers/contentToDProjectsHandler
 import { NoteCreationHandler } from '../handlers/noteCreationHandler';
 import { TipsToEExamsHandler } from '../handlers/tipsToEExamsHandler';
 import { ArchiveHandler } from '../handlers/archiveHandler';
+import { CSheetActionsModal } from './CSheetActionsModal';
+import { CSheetUpdateModal } from './CSheetUpdateModal';
 
 export class ABCsModal extends Modal {
 	plugin: ABCsOfControlPluginAPI;
@@ -214,6 +216,21 @@ export class ABCsModal extends Modal {
                 const pipelineId = this.resolvePipelineIdForTemplate(template);
                 if (pipelineId) {
                     await this.handleContentToDProjects(template, pipelineId);
+                    return;
+                }
+                if (template.basename.startsWith('C-Sheets')) {
+                    const actionsModal = new CSheetActionsModal(
+                        this.app,
+                        () => {
+                            this.selectedTemplate = template;
+                            this.promptForNoteCreation();
+                        },
+                        () => {
+                            const modal = new CSheetUpdateModal(this.app);
+                            modal.open();
+                        }
+                    );
+                    actionsModal.open();
                     return;
                 }
                 this.promptForNoteCreation();

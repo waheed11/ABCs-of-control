@@ -60,6 +60,31 @@ export class ControlSheetExtractModal extends Modal {
 				}
 			})();
 		});
+		const updateBtn = buttonContainer.createEl('button', { text: 'Update' });
+		updateBtn.addEventListener('click', () => {
+			void (async () => {
+				const selectedPath = select.value && select.value.trim();
+				if (!selectedPath) return;
+				const file = this.app.vault.getAbstractFileByPath(selectedPath);
+				if (!file || !(file instanceof TFile)) return;
+				try {
+					const plan = await this.handler.buildPlan(file);
+					const summary = this.handler.buildUpdateSummary(plan);
+					const confirmed = await confirmModal(
+						this.app,
+						'Update extracted notes from control sheet',
+						summary,
+						'Update',
+						'Cancel',
+					);
+					if (!confirmed) return;
+					await this.handler.executeUpdatePlan(plan);
+					this.close();
+				} catch (e) {
+					console.error('Control sheet update error:', e);
+				}
+			})();
+		});
 	}
 
 	onClose(): void {

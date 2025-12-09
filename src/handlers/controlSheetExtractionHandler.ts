@@ -116,7 +116,7 @@ export class ControlSheetExtractionHandler {
 			const targetPath = d.fullPath;
 			const existing = this.app.vault.getAbstractFileByPath(targetPath);
 			if (existing && existing instanceof TFile) {
-				const updated = await this.updateExistingDProjectNote(existing, idx);
+				const updated = await this.updateExistingDProjectNote(existing, idx, d.content);
 				if (updated) {
 					created.push(targetPath);
 				}
@@ -131,9 +131,82 @@ export class ControlSheetExtractionHandler {
 		}
 	}
 
+	async executeUpdatePlan(plan: ControlSheetExtractionPlan): Promise<void> {
+		ensureUnderRole(this.app, 'C', plan.cNote.path);
+		ensureUnderRole(this.app, 'B', plan.bNote.path);
+		for (const a of plan.aNotes) {
+			ensureUnderRole(this.app, 'A', a.path);
+		}
+		const dPaths = new Set<string>();
+		for (const d of plan.dNotes) {
+			if (!dPaths.has(d.path)) {
+				dPaths.add(d.path);
+				ensureUnderRole(this.app, 'D', d.path);
+			}
+		}
+		const created: string[] = [];
+		const updated: string[] = [];
+		const upsertNote = async (p: ExtractionNotePlan): Promise<void> => {
+			const targetPath = p.fullPath;
+			const existing = this.app.vault.getAbstractFileByPath(targetPath);
+			const folderPath = targetPath.split('/').slice(0, -1).join('/');
+			if (folderPath) {
+				await ensureFolderExists(this.app, folderPath);
+			}
+			if (existing && existing instanceof TFile) {
+				await this.app.vault.modify(existing, p.content);
+				updated.push(targetPath);
+			} else {
+				await this.app.vault.create(targetPath, p.content);
+				created.push(targetPath);
+			}
+		};
+		const upsertTemplate = async (p: ExtractionTemplatePlan): Promise<void> => {
+			const targetPath = p.fullPath;
+			const existing = this.app.vault.getAbstractFileByPath(targetPath);
+			const folderPath = targetPath.split('/').slice(0, -1).join('/');
+			if (folderPath) {
+				await ensureFolderExists(this.app, folderPath);
+			}
+			if (existing && existing instanceof TFile) {
+				await this.app.vault.modify(existing, p.content);
+				updated.push(targetPath);
+			} else {
+				await this.app.vault.create(targetPath, p.content);
+				created.push(targetPath);
+			}
+		};
+		await upsertNote(plan.cNote);
+		await upsertNote(plan.bNote);
+		for (const a of plan.aNotes) {
+			await upsertNote(a);
+		}
+		for (let idx = 0; idx < plan.dTemplates.length; idx++) {
+			const t = plan.dTemplates[idx];
+			await upsertTemplate(t);
+		}
+		for (let idx = 0; idx < plan.dNotes.length; idx++) {
+			const d = plan.dNotes[idx];
+			const targetPath = d.fullPath;
+			const existing = this.app.vault.getAbstractFileByPath(targetPath);
+			if (existing && existing instanceof TFile) {
+				const changed = await this.updateExistingDProjectNote(existing, idx, d.content);
+				if (changed) {
+					updated.push(targetPath);
+				}
+				continue;
+			}
+			await upsertNote(d);
+		}
+		const totalAffected = created.length + updated.length;
+		new Notice(
+			`Updated ${totalAffected} note(s) from control sheet (${created.length} created, ${updated.length} modified)`,
+		);
+	}
+
 	buildSummary(plan: ControlSheetExtractionPlan): string {
 		const lines: string[] = [];
-		lines.push('We are going to extract the following:');
+		lines.push('We are going to create or update the following:');
 		lines.push('');
 		lines.push(`1 Note to ${plan.cNote.path}`);
 		lines.push(`1 Note to ${plan.bNote.path}`);
@@ -159,6 +232,15 @@ export class ControlSheetExtractionHandler {
 				lines.push(`${count} Note${count !== 1 ? 's' : ''} to ${path}`);
 			}
 		}
+		return lines.join('\n');
+	}
+
+	buildUpdateSummary(plan: ControlSheetExtractionPlan): string {
+		const lines: string[] = [];
+		lines.push('This will re-sync all notes previously extracted from this control sheet.');
+		lines.push('');
+		lines.push('Notes in A, B, and C (and C/Templates) will be regenerated from the latest version of the control sheet.');
+		lines.push('Existing D project notes will only receive new concept references based on Dn No. metadata (D1, D2, D3, ...); their other content is preserved.');
 		return lines.join('\n');
 	}
 
@@ -198,7 +280,11 @@ export class ControlSheetExtractionHandler {
 		return result;
 	}
 
-	private async updateExistingDProjectNote(file: TFile, projectIndex: number): Promise<boolean> {
+	private async updateExistingDProjectNote(
+		file: TFile,
+		projectIndex: number,
+		latestProjectBody?: string,
+	): Promise<boolean> {
 		const projectToc = this.dTocEntries.filter(e => e.projectIndex === projectIndex);
 		if (projectToc.length === 0) {
 			return false;
@@ -221,7 +307,10 @@ export class ControlSheetExtractionHandler {
 			return false;
 		}
 		newEntries.sort((a, b) => compareSection(parseSection(a.section), parseSection(b.section)));
-		const bodyLines = body.replace(/^\n/, '').split('\n');
+		let bodyLines = body.replace(/^\n/, '').split('\n');
+		if (latestProjectBody) {
+			bodyLines = this.ensureHeadingsFromTemplate(bodyLines, latestProjectBody);
+		}
 		const updatedBodyLines = this.insertTocIntoBodyLines(bodyLines, newEntries);
 		const updatedBody = updatedBodyLines.join('\n').trim();
 		const newContent = frontmatter ? frontmatter + updatedBody : updatedBody;
@@ -330,7 +419,7 @@ export class ControlSheetExtractionHandler {
 		//   - ==A/Permanent Notes/[[Some Concept]]==
 		// leaving the original C-Sheet content untouched for parsing.
 		const transformedLines = lines.map(line => {
-			const m = /^(\s*)-\s+==(.+)==\s*$/.exec(line);
+			const m = /^(\s*)(?:-\s+)?==(.+)==\s*$/.exec(line);
 			if (!m) return line;
 			const indent = m[1] ?? '';
 			const fullPathText = m[2].trim();
@@ -353,7 +442,7 @@ export class ControlSheetExtractionHandler {
 		while (i < lines.length) {
 			const line = lines[i];
 			const trimmed = line.trim();
-			const m = /^-\s+==(.+)==\s*$/.exec(trimmed);
+			const m = /^(?:-\s+)?==(.+)==\s*$/.exec(trimmed);
 			if (!m) {
 				i++;
 				continue;
@@ -371,7 +460,7 @@ export class ControlSheetExtractionHandler {
 			while (i < lines.length) {
 				const l2 = lines[i];
 				const t2 = l2.trim();
-				if (/^-\s+==(.+)==\s*$/.test(t2)) break;
+				if (/^(?:-\s+)?==(.+)==\s*$/.test(t2)) break;
 				if (t2.startsWith('#')) break;
 				if (t2 === '' && descLines.length === 0) {
 					i++;
@@ -592,17 +681,33 @@ export class ControlSheetExtractionHandler {
 		for (const h of headingInfos) {
 			const assigned = entriesByHeading.get(h.lineIndex);
 			if (!assigned || assigned.length === 0) continue;
-			let j = h.lineIndex + 1;
-			while (j < bodyLines.length) {
-				const t = bodyLines[j].trim();
-				if (t.startsWith('#')) {
-					const m2 = /^#+/.exec(t);
-					const depth2 = m2 ? m2[0].length : 0;
-					if (depth2 <= h.depth) break; // next heading at same or higher level ends this block
+			let insertAfter: number;
+			const lastPart = h.parts[h.parts.length - 1];
+			if (lastPart === 0) {
+				// For headings like "8.0" or "1.0", place their TOC entries immediately
+				// under the heading (before any subheadings like 8.1, 8.2, ...), so that
+				// lines such as "8.0.1 [[...]]" stay with the 8.0 heading instead of being
+				// pushed to the bottom of the entire 8.x block.
+				let j = h.lineIndex + 1;
+				while (j < bodyLines.length) {
+					const t = bodyLines[j].trim();
+					if (t.startsWith('#')) break; // stop before the first subheading
+					j++;
 				}
-				j++;
+				insertAfter = Math.max(h.lineIndex, j - 1);
+			} else {
+				let j = h.lineIndex + 1;
+				while (j < bodyLines.length) {
+					const t = bodyLines[j].trim();
+					if (t.startsWith('#')) {
+						const m2 = /^#+/.exec(t);
+						const depth2 = m2 ? m2[0].length : 0;
+						if (depth2 <= h.depth) break; // next heading at same or higher level ends this block
+					}
+					j++;
+				}
+				insertAfter = Math.max(h.lineIndex, j - 1);
 			}
-			const insertAfter = Math.max(h.lineIndex, j - 1);
 			const existing = insertMap.get(insertAfter) ?? [];
 			existing.push(...assigned);
 			insertMap.set(insertAfter, existing);
@@ -629,6 +734,74 @@ export class ControlSheetExtractionHandler {
 			for (const entry of leftover) {
 				result.push(`${entry.section} [[${entry.conceptName}]]`);
 			}
+		}
+		return result;
+	}
+
+	/**
+	 * Ensure that all numeric headings present in the latest project body (from the
+	 * control sheet D section) also exist in the current D project note. This lets
+	 * us introduce new sections such as "8.12 ..." into an existing note while
+	 * preserving any manual content the user has added.
+	 */
+	private ensureHeadingsFromTemplate(existingBodyLines: string[], latestProjectBody: string): string[] {
+		const headingRegex = /^(#+)\s+(.+?)\s*$/;
+		const result = existingBodyLines.slice();
+		const hasHeading = new Set<string>();
+		for (const line of result) {
+			const m = headingRegex.exec(line.trim());
+			if (!m) continue;
+			const level = m[1].length;
+			const text = m[2].trim();
+			hasHeading.add(`${level}|${text}`);
+		}
+		const templateHeadings: { level: number; text: string; section: number[] }[] = [];
+		for (const raw of latestProjectBody.replace(/\r\n/g, '\n').split('\n')) {
+			const m = headingRegex.exec(raw.trim());
+			if (!m) continue;
+			const level = m[1].length;
+			const text = m[2].trim();
+			const section = parseSection(text);
+			if (section.length === 0) continue;
+			templateHeadings.push({ level, text, section });
+		}
+		// Process headings in the order they appear in the template; insertion
+		// positions are still determined numerically using compareSection.
+		for (const h of templateHeadings) {
+			const key = `${h.level}|${h.text}`;
+			if (hasHeading.has(key)) continue;
+			const targetSection = h.section;
+			let insertAt = result.length;
+			if (targetSection.length > 0) {
+				for (let i = 0; i < result.length; i++) {
+					const line = result[i];
+					const m = headingRegex.exec(line.trim());
+					if (!m) continue;
+					const text = m[2].trim();
+					const section = parseSection(text);
+					if (section.length === 0) continue;
+					if (compareSection(targetSection, section) < 0) {
+						insertAt = i;
+						break;
+					}
+				}
+			}
+			const hashes = '#'.repeat(h.level);
+			const headingLine = `${hashes} ${h.text}`;
+			if (insertAt >= result.length) {
+				if (result.length > 0 && result[result.length - 1].trim() !== '') {
+					result.push('');
+				}
+				result.push(headingLine, '');
+			} else {
+				const toInsert: string[] = [];
+				if (insertAt > 0 && result[insertAt - 1].trim() !== '') {
+					toInsert.push('');
+				}
+				toInsert.push(headingLine, '');
+				result.splice(insertAt, 0, ...toInsert);
+			}
+			hasHeading.add(key);
 		}
 		return result;
 	}
