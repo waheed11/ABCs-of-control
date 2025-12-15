@@ -13,6 +13,15 @@ interface ExtractionTemplatePlan {
 	content: string;
 }
 
+interface CSheetConfig {
+	intentionsPath?: string;
+	intentionName?: string;
+	infoPath?: string;
+	infoName?: string;
+	conceptsBasePath?: string;
+	projectsPath?: string;
+}
+
 export interface ControlSheetExtractionPlan {
 	sheetFile: TFile;
 	cNote: ExtractionNotePlan;
@@ -34,6 +43,7 @@ export class ControlSheetExtractionHandler {
 		const raw = await this.app.vault.read(sheetFile);
 		const normalized = raw.replace(/\r\n/g, '\n');
 		const tags = this.extractTagsFromFrontmatter(normalized);
+		const cSheetConfig = this.extractCSheetConfig(normalized);
 		const withoutFrontmatter = this.stripFrontmatter(normalized);
 		const lines = withoutFrontmatter.split('\n');
 		const sections = this.splitSections(lines);
@@ -42,13 +52,13 @@ export class ControlSheetExtractionHandler {
 		if (sections.C.length === 0 || sections.B.length === 0 || sections.D.length === 0) {
 			throw new Error('Control sheet is missing C, B, or D sections');
 		}
-		const cNoteBase = this.buildCNotePlan(sections.C);
-		const bNoteBase = this.buildBNotePlan(sections.B);
-		const aNotesBase = this.buildANotePlans(sections.B);
+		const cNoteBase = this.buildCNotePlan(sections.C, cSheetConfig);
+		const bNoteBase = this.buildBNotePlan(sections.B, cSheetConfig);
+		const aNotesBase = this.buildANotePlans(sections.B, cSheetConfig);
 		if (aNotesBase.length === 0) {
 			new Notice('No concepts were detected in the B/Concepts section; A notes will not be created');
 		}
-		const dPlansBase = this.buildDPlans(sections.D);
+		const dPlansBase = this.buildDPlans(sections.D, cSheetConfig);
 		// Apply tags from the control sheet frontmatter to all extracted notes/templates
 		const cNote = this.applyTagsToNotePlan(cNoteBase, tags);
 		const bNote = this.applyTagsToNotePlan(bNoteBase, tags);
@@ -280,6 +290,38 @@ export class ControlSheetExtractionHandler {
 		return result;
 	}
 
+	private extractCSheetConfig(src: string): CSheetConfig | undefined {
+		const result: CSheetConfig = {};
+		if (!src.startsWith('---')) return result;
+		const end = src.indexOf('\n---', 3);
+		if (end === -1) return result;
+		const fm = src.slice(3, end); // skip initial '---'
+		const lines = fm.replace(/\r\n/g, '\n').split('\n');
+		let inBlock = false;
+		for (const rawLine of lines) {
+			const trimmed = rawLine.trimEnd();
+			if (!inBlock) {
+				if (/^abcs_csheet\s*:/i.test(trimmed)) {
+					inBlock = true;
+				}
+				continue;
+			}
+			// Once inside abcs_csheet, consume indented key/value pairs until we
+			// hit a non-indented line (next top-level field) or blank line.
+			if (!/^\s+/.test(rawLine)) break;
+			const m = /^\s+([A-Za-z0-9_]+)\s*:\s*(.*)$/.exec(rawLine);
+			if (!m) continue;
+			const key = m[1].trim() as keyof CSheetConfig;
+			let value = (m[2] ?? '').trim();
+			if (!value) continue;
+			if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+				value = value.slice(1, -1);
+			}
+			(result as any)[key] = value;
+		}
+		return result;
+	}
+
 	private async updateExistingDProjectNote(
 		file: TFile,
 		projectIndex: number,
@@ -393,24 +435,44 @@ export class ControlSheetExtractionHandler {
 		return sections;
 	}
 
-	private buildCNotePlan(lines: string[]): ExtractionNotePlan {
-		const heading = lines.find(l => l.trim().startsWith('## '));
-		if (!heading) {
-			throw new Error('Could not find C section main heading');
+	private buildCNotePlan(lines: string[], cfg?: CSheetConfig): ExtractionNotePlan {
+		let path: string | undefined;
+		let name: string | undefined;
+		if (cfg?.intentionsPath && cfg?.intentionName) {
+			path = cfg.intentionsPath;
+			name = cfg.intentionName;
 		}
-		const { path, name } = this.parsePathAndNameFromHeading(heading, '##');
+		if (!path || !name) {
+			const heading = lines.find(l => l.trim().startsWith('## '));
+			if (!heading) {
+				throw new Error('Could not find C section main heading');
+			}
+			const parsed = this.parsePathAndNameFromHeading(heading, '##');
+			path = parsed.path;
+			name = parsed.name;
+		}
 		const bodyLines = this.removeFirstHeadingLine(lines);
 		const content = bodyLines.join('\n').trim();
 		const fullPath = this.buildNoteFullPath(path, name);
 		return { path, filename: name, fullPath, content };
 	}
 
-	private buildBNotePlan(lines: string[]): ExtractionNotePlan {
-		const heading = lines.find(l => l.trim().startsWith('## '));
-		if (!heading) {
-			throw new Error('Could not find B section main heading');
+	private buildBNotePlan(lines: string[], cfg?: CSheetConfig): ExtractionNotePlan {
+		let path: string | undefined;
+		let name: string | undefined;
+		if (cfg?.infoPath && cfg?.infoName) {
+			path = cfg.infoPath;
+			name = cfg.infoName;
 		}
-		const { path, name } = this.parsePathAndNameFromHeading(heading, '##');
+		if (!path || !name) {
+			const heading = lines.find(l => l.trim().startsWith('## '));
+			if (!heading) {
+				throw new Error('Could not find B section main heading');
+			}
+			const parsed = this.parsePathAndNameFromHeading(heading, '##');
+			path = parsed.path;
+			name = parsed.name;
+		}
 		// Enhance B note by turning each extracted concept bullet into a wikilink
 		// so that Obsidian links the B note to the corresponding A note.
 		// Input bullets in the control sheet look like:
@@ -419,16 +481,18 @@ export class ControlSheetExtractionHandler {
 		//   - ==A/Permanent Notes/[[Some Concept]]==
 		// leaving the original C-Sheet content untouched for parsing.
 		const transformedLines = lines.map(line => {
-			const m = /^(\s*)(?:-\s+)?==(.+)==\s*$/.exec(line);
-			if (!m) return line;
-			const indent = m[1] ?? '';
-			const fullPathText = m[2].trim();
-			if (!fullPathText) return line;
-			const parts = fullPathText.split('/');
-			const noteName = (parts[parts.length - 1] || fullPathText).trim();
+			const detected = this.detectConceptPathFromLine(line, cfg?.conceptsBasePath);
+			if (!detected) return line;
+			const { indent, fullPathText } = detected;
+			const resolved = this.resolveConceptBaseAndName(fullPathText, cfg?.conceptsBasePath);
+			if (!resolved) return line;
+			const { basePath, name: noteName } = resolved;
 			if (!noteName) return line;
-			const basePath = parts.slice(0, -1).join('/');
-			const linked = basePath ? `${basePath}/[[${noteName}]]` : `[[${noteName}]]`;
+			// Anchor B-note links to the configured concepts base path when available,
+			// so that they always point to the same folder as A notes.
+			const cfgBase = cfg?.conceptsBasePath?.trim().replace(/\/+$/, '');
+			const finalBase = cfgBase || basePath;
+			const linked = finalBase ? `${finalBase}/[[${noteName}]]` : `[[${noteName}]]`;
 			return `${indent}- ==${linked}==`;
 		});
 		const content = transformedLines.join('\n').trim();
@@ -436,31 +500,42 @@ export class ControlSheetExtractionHandler {
 		return { path, filename: name, fullPath, content };
 	}
 
-	private buildANotePlans(lines: string[]): ExtractionNotePlan[] {
+	private buildANotePlans(lines: string[], cfg?: CSheetConfig): ExtractionNotePlan[] {
 		const result: ExtractionNotePlan[] = [];
 		let i = 0;
 		while (i < lines.length) {
 			const line = lines[i];
-			const trimmed = line.trim();
-			const m = /^(?:-\s+)?==(.+)==\s*$/.exec(trimmed);
-			if (!m) {
+			const detected = this.detectConceptPathFromLine(line, cfg?.conceptsBasePath);
+			if (!detected) {
 				i++;
 				continue;
 			}
-			const fullPathText = m[1].trim();
-			const parts = fullPathText.split('/');
-			if (parts.length < 2) {
+			const fullPathText = detected.fullPathText.trim();
+			const resolved = this.resolveConceptBaseAndName(fullPathText, cfg?.conceptsBasePath);
+			if (!resolved || !resolved.basePath || !resolved.name) {
 				i++;
 				continue;
 			}
-			const name = parts[parts.length - 1];
-			const basePath = parts.slice(0, -1).join('/');
+			// If a conceptsBasePath is configured, always use it (plus any subfolders
+			// under it) as the folder for A notes. This ensures A notes are created
+			// under paths like A/Permanent Notes/Tests instead of collapsing to just
+			// "A" or other roots.
+			const cfgBase = cfg?.conceptsBasePath?.trim().replace(/\/+$/, '');
+			let basePath = resolved.basePath;
+			const name = resolved.name;
+			if (cfgBase) {
+				// If the resolved basePath is already under cfgBase, keep it; otherwise
+				// anchor it directly to cfgBase.
+				if (!basePath || !basePath.startsWith(cfgBase)) {
+					basePath = cfgBase;
+				}
+			}
 			const descLines: string[] = [];
 			i++;
 			while (i < lines.length) {
 				const l2 = lines[i];
 				const t2 = l2.trim();
-				if (/^(?:-\s+)?==(.+)==\s*$/.test(t2)) break;
+				if (this.detectConceptPathFromLine(l2, cfg?.conceptsBasePath)) break;
 				if (t2.startsWith('#')) break;
 				if (t2 === '' && descLines.length === 0) {
 					i++;
@@ -565,7 +640,84 @@ export class ControlSheetExtractionHandler {
 		return false;
 	}
 
-	private buildDPlans(lines: string[]): { templates: ExtractionTemplatePlan[]; notes: ExtractionNotePlan[] } {
+	private detectConceptPathFromLine(
+		line: string,
+		conceptsBasePath?: string,
+	): { indent: string; fullPathText: string } | null {
+		// Capture leading indent and optional bullet, but not the bullet itself.
+		const indentMatch = /^(\s*)(?:[-*]\s+)?(.*)$/.exec(line);
+		const indent = indentMatch ? indentMatch[1] : '';
+		let rest = indentMatch ? indentMatch[2] : line.trim();
+		rest = rest.trim();
+		// 1) Prefer the original ==A/...== highlight pattern when present. This
+		// reliably captures the full concept path including the final name, and
+		// avoids any truncation bugs from the config-based path scanning below.
+		const legacyMatch = /^(?:-\s+)?==(.+)==\s*$/.exec(line.trim());
+		if (legacyMatch) {
+			const fullPathText = legacyMatch[1].trim();
+			if (!fullPathText) return null;
+			return { indent, fullPathText };
+		}
+		// 2) Otherwise, strip simple highlight wrappers like ==...== from the tail
+		// and try to locate the configured concepts base path inside the line.
+		if (/^==.+==\s*$/.test(rest)) {
+			rest = rest.replace(/^==/, '').replace(/==\s*$/, '').trim();
+		}
+		// If we have a configured concepts base path, prefer a path-based match
+		// that is resilient to formatting changes (extra markup, etc.).
+		const base = conceptsBasePath ? conceptsBasePath.trim().replace(/\/+$/, '') : '';
+		if (base) {
+			const idx = rest.indexOf(base + '/');
+			if (idx >= 0) {
+				let pathPart = rest.slice(idx);
+				const wsIdx = pathPart.search(/\s/);
+				if (wsIdx >= 0) {
+					pathPart = pathPart.slice(0, wsIdx);
+				}
+				const fullPathText = pathPart.trim();
+				if (fullPathText) {
+					return { indent, fullPathText };
+				}
+			}
+		}
+		return null;
+	}
+
+	private resolveConceptBaseAndName(
+		fullPathText: string,
+		conceptsBasePath?: string,
+	): { basePath: string; name: string } | null {
+		const text = fullPathText.trim();
+		if (!text) return null;
+		const cfgBase = conceptsBasePath ? conceptsBasePath.trim().replace(/\/+$/, '') : '';
+		// If we have a configured concepts base path and the detected path is under it,
+		// always anchor concepts to that base path so they don't accidentally end up
+		// under plain "A" or some other folder.
+		if (cfgBase && text.startsWith(cfgBase + '/')) {
+			const suffix = text.slice(cfgBase.length + 1).trim();
+			if (!suffix) return null;
+			const parts = suffix.split('/');
+			const name = (parts[parts.length - 1] || '').trim();
+			if (!name) return null;
+			const extra = parts.slice(0, -1).filter(s => s.trim().length > 0).join('/');
+			const basePath = extra ? `${cfgBase}/${extra}` : cfgBase;
+			return { basePath, name };
+		}
+		// Backward-compatible fallback when there is no config or the text does not
+		// start with the configured base path: derive base + name purely from the
+		// detected path text.
+		const parts = text.split('/');
+		if (parts.length < 2) {
+			// No clear base path; we cannot safely place this concept.
+			return null;
+		}
+		const name = (parts[parts.length - 1] || '').trim();
+		const basePath = parts.slice(0, -1).join('/').trim();
+		if (!name || !basePath) return null;
+		return { basePath, name };
+	}
+
+	private buildDPlans(lines: string[], _cfg?: CSheetConfig): { templates: ExtractionTemplatePlan[]; notes: ExtractionNotePlan[] } {
 		// Remove instructional helper lines from the D section
 		const cleaned = lines.filter(l => !this.isDInstructionLine(l));
 		// Treat every level-2 heading as the start of a project block.

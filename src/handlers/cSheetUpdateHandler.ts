@@ -284,6 +284,10 @@ export class CSheetUpdateHandler {
 					for (let k = next.bulletIndex; k <= next.endIndex; k++) {
 						result.push(originalLines[k]);
 					}
+					// If this existing concept has no metadata yet, append the standard D1 block
+					if (next.metaLines.length === 0) {
+						this.appendDefaultMetadataLines(result);
+					}
 				} else {
 					const incoming = incomingByName.get(name);
 					const desc = (incoming?.description || '').trim();
@@ -296,8 +300,12 @@ export class CSheetUpdateHandler {
 							result.push(`  ${t}`);
 						}
 					}
-					for (const ml of next.metaLines) {
-						result.push(ml);
+					if (next.metaLines.length > 0) {
+						for (const ml of next.metaLines) {
+							result.push(ml);
+						}
+					} else {
+						this.appendDefaultMetadataLines(result);
 					}
 				}
 				i = next.endIndex + 1;
@@ -308,6 +316,14 @@ export class CSheetUpdateHandler {
 			}
 		}
 		return result;
+	}
+
+	private appendDefaultMetadataLines(lines: string[]): void {
+		lines.push('  D1 No.: ');
+		lines.push('  Optional:');
+		lines.push('  Is verified?(Y or N):');
+		lines.push('  Degree of importance (1-5):');
+		lines.push('  Complexity (1-5):');
 	}
 
 	private flattenConcepts(groups: ConceptsJsonGroup[]): Map<string, { description: string; group: ConceptsJsonGroup | null }> {

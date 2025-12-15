@@ -412,6 +412,15 @@ export class NoteCreationHandler {
 								new Notice('Error loading concepts JSON');
 							}
 						})(); });
+					} else if (displayNameLC === 'what is the name of the main information block') {
+						// This name is later embedded into a template filename that is parsed
+						// using '-' as a structural separator. To avoid generating incorrect
+						// D project paths, we require a name without '-' characters.
+						const input = row.createEl('input', {
+							type: 'text',
+							placeholder: 'Enter main information block name (without "-")',
+						});
+						inputFields[fullToken] = input;
 					} else {
 						const input = row.createEl('input', {
 							type: 'text',
@@ -521,6 +530,13 @@ export class NoteCreationHandler {
 								return;
 							}
 						}
+						// Disallow '-' in the main information block name to avoid
+						// breaking template filename parsing (which uses '-' as a
+						// structural separator when deriving D project paths).
+						if (tokenNameLC === 'what is the name of the main information block' && value.includes('-')) {
+							new Notice('The name of the main information block cannot contain the "-" character. Please choose a name without "-".');
+							return;
+						}
 					}
 					placeholderValues[fullToken] = value;
 				}
@@ -537,6 +553,50 @@ export class NoteCreationHandler {
 		}
 	}
 
+	private injectCSheetConfig(finalContent: string, placeholderValues: Record<string, string>): string {
+		const normalized = finalContent.replace(/\r\n/g, '\n');
+		if (!normalized.startsWith('---\n')) return finalContent;
+		const end = normalized.indexOf('\n---', 4);
+		if (end === -1) return finalContent;
+		const fm = normalized.slice(0, end); // up to but not including closing --- line
+		// Do not overwrite if a config block already exists
+		if (/^abcs_csheet\s*:/m.test(fm)) {
+			return finalContent;
+		}
+		// Build a lookup from placeholder display name (lowercased) to value
+		const byName: Record<string, string> = {};
+		for (const [token, value] of Object.entries(placeholderValues)) {
+			const inner = token
+				.slice(2, -2)
+				.replace(/^VALUE\s*[:|-]?\s*/i, '')
+				.trim();
+			if (!inner) continue;
+			byName[inner.toLowerCase()] = value;
+		}
+		const intentionsPath = (byName['intentions path'] || '').trim();
+		const intentionName = (byName['what is the name of this intention'] || '').trim();
+		const infoPath = (byName['information blocks path'] || '').trim();
+		const infoName = (byName['what is the name of the main information block'] || '').trim();
+		const conceptsBasePath = (byName['concepts path'] || '').trim();
+		const projectsPath = (byName['projects path'] || '').trim();
+		if (!intentionsPath && !intentionName && !infoPath && !infoName && !conceptsBasePath && !projectsPath) {
+			return finalContent;
+		}
+		const cfgLines: string[] = [];
+		cfgLines.push('abcs_csheet:');
+		if (intentionsPath) cfgLines.push(`  intentionsPath: ${JSON.stringify(intentionsPath)}`);
+		if (intentionName) cfgLines.push(`  intentionName: ${JSON.stringify(intentionName)}`);
+		if (infoPath) cfgLines.push(`  infoPath: ${JSON.stringify(infoPath)}`);
+		if (infoName) cfgLines.push(`  infoName: ${JSON.stringify(infoName)}`);
+		if (conceptsBasePath) cfgLines.push(`  conceptsBasePath: ${JSON.stringify(conceptsBasePath)}`);
+		if (projectsPath) cfgLines.push(`  projectsPath: ${JSON.stringify(projectsPath)}`);
+		const cfgBlock = '\n' + cfgLines.join('\n');
+		const before = fm;
+		const after = normalized.slice(end); // includes closing --- and rest of file
+		const updated = before + cfgBlock + after;
+		return updated;
+	}
+
 	/**
 	 * Create note from template with placeholder replacement
 	 */
@@ -545,6 +605,12 @@ export class NoteCreationHandler {
 		let finalContent = templateContent;
 		for (const [placeholder, value] of Object.entries(placeholderValues)) {
 			finalContent = finalContent.replace(new RegExp(placeholder, 'g'), value);
+		}
+		// If this is a C-Sheet template, persist a small configuration block in
+		// the frontmatter so that later handlers (extraction, updates) can rely on
+		// user-provided paths/names instead of brittle text patterns.
+		if (selectedTemplate.basename.startsWith('C-Sheets')) {
+			finalContent = this.injectCSheetConfig(finalContent, placeholderValues);
 		}
 		if (conceptsImport && conceptsImport.token && conceptsImport.data && conceptsImport.data.length > 0) {
 			const conceptsPathValue = placeholderValues[conceptsImport.token] ?? '';
